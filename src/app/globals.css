@@ -823,3 +823,175 @@ div[data-media-provider] video {
     background-position: 100% 50%;
   }
 }
+
+/* =========================================
+   Artplayer Custom Styles (Telegram-like)
+   ========================================= */
+
+/* 1. Player Container Styling */
+.art-video-player {
+  /* Ensure the player itself has rounded corners when not fullscreen */
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  /* Smooth transition for size/border changes */
+  transition: border-radius 0.3s ease, box-shadow 0.3s ease;
+  /* Subtle inner border for depth */
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Remove rounded corners in fullscreen */
+.art-fullscreen .art-video-player,
+.art-fullscreen-web .art-video-player {
+  border-radius: 0 !important;
+}
+
+/* 2. Floating Bottom Control Bar */
+.art-bottom {
+  /* Float the control bar */
+  position: absolute !important;
+  bottom: 24px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+
+  /* Sizing */
+  width: auto !important;
+  min-width: 60%;
+  max-width: 90%;
+
+  /* Glassmorphism Effect */
+  background: rgba(20, 20, 20, 0.65) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+
+  /* Shape */
+  border-radius: 30px !important;
+  padding: 4px 20px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+
+  /* Animation */
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+
+  /* Ensure it sits above other elements */
+  z-index: 50 !important;
+}
+
+/* Hide controls state (Fade out & Slide down) */
+.art-hide-cursor .art-bottom {
+  opacity: 0 !important;
+  transform: translateX(-50%) translateY(10px) !important;
+  pointer-events: none !important;
+}
+
+/* 3. Progress Bar Refinement */
+.art-control-progress {
+  /* Make it fit nicely within the floating bar */
+  height: 3px !important;
+  border-radius: 2px !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  margin-bottom: 0 !important; /* Remove default spacing if any */
+  transition: height 0.2s ease !important;
+}
+
+.art-control-progress:hover {
+  height: 5px !important;
+}
+
+/* The played portion of the progress bar */
+.art-control-progress-played {
+  background: var(--art-theme) !important; /* Use the theme color */
+  border-radius: 2px !important;
+}
+
+/* The indicator knob */
+.art-control-progress-indicator {
+  width: 10px !important;
+  height: 10px !important;
+  background: #fff !important;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 4. Controls Layout */
+.art-controls {
+  /* Adjust spacing inside the bar */
+  margin-top: 4px !important;
+  overflow: visible !important; /* Allow tooltips to show */
+}
+
+.art-control {
+  /* Spacing between icons */
+  margin-right: 10px !important;
+  opacity: 0.9;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.art-control:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.art-control:last-child {
+  margin-right: 0 !important;
+}
+
+/* 5. Mobile Adaptations */
+@media (max-width: 768px) {
+  .art-bottom {
+    width: 92% !important;
+    bottom: 16px !important;
+    padding: 4px 12px !important;
+    min-width: unset !important;
+  }
+
+  .art-control {
+    margin-right: 8px !important;
+  }
+}
+
+/* 6. Center Play Button (Telegram Style) */
+.art-state {
+  /* Make the center play/pause button more elegant */
+  background: rgba(0, 0, 0, 0.4) !important;
+  backdrop-filter: blur(4px);
+  border-radius: 50% !important;
+  width: 64px !important;
+  height: 64px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.art-state svg {
+  width: 32px !important;
+  height: 32px !important;
+}
+
+/* 7. Context Menu Customization */
+.art-contextmenu {
+  background: rgba(20, 20, 20, 0.9) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  padding: 4px !important;
+}
+
+.art-contextmenu-item {
+  border-radius: 4px !important;
+  transition: background 0.2s ease !important;
+}
+
+.art-contextmenu-item:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 8. Settings Panel Customization */
+.art-setting-panel {
+  background: rgba(20, 20, 20, 0.9) !important;
+  backdrop-filter: blur(10px) !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  width: 280px !important;
+}
+
+.art-setting-item:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
