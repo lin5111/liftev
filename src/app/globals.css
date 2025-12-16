@@ -826,106 +826,159 @@ div[data-media-provider] video {
 
 /* =========================================
    Artplayer 自定义样式 (Telegram 风格)
-   优化：淡入淡出、精致小窗、紧凑控制栏
+   实现：浮动居中控制栏、淡入淡出、精致小窗
    ========================================= */
 
-/* -------- 1. 播放器容器 -------- */
+/* -------- 1. 播放器容器圆角 -------- */
 .art-video-player {
   border-radius: 12px !important;
   overflow: hidden !important;
-  transition: border-radius 0.3s ease !important;
 }
 
-/* 全屏时移除圆角 */
 .art-video-player.art-fullscreen,
 .art-video-player.art-fullscreen-web {
   border-radius: 0 !important;
 }
 
-/* -------- 2. 控制层淡入淡出 -------- */
+/* -------- 2. 底部控制区域 - 浮动居中胶囊 -------- */
 .art-bottom {
+  /* 关键：改变定位为居中浮动 */
+  position: absolute !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: 20px !important;
+  transform: translateX(-50%) !important;
+
+  /* 尺寸控制 - 自适应内容，不要太宽 */
+  width: auto !important;
+  max-width: calc(100% - 48px) !important;
+  min-width: 300px !important;
+
+  /* 毛玻璃胶囊效果 */
+  background: rgba(0, 0, 0, 0.55) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+
+  /* 胶囊形状 */
+  border-radius: 16px !important;
+  padding: 8px 16px !important;
+
+  /* 边框和阴影 */
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3) !important;
+
+  /* 淡入淡出动画 */
   opacity: 1 !important;
-  transition: opacity 0.35s ease-out, visibility 0.35s ease-out !important;
+  visibility: visible !important;
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease !important;
 }
 
-.art-video-player.art-hide-cursor .art-bottom,
-.art-video-player.art-hide-cursor .art-controls {
+/* 隐藏状态 - 淡出并下移 */
+.art-video-player.art-hide-cursor .art-bottom {
   opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateX(-50%) translateY(20px) !important;
   pointer-events: none !important;
 }
 
-/* -------- 3. 进度条优化 -------- */
+/* -------- 3. 进度条 -------- */
 .art-progress {
-  height: 3px !important;
+  height: 4px !important;
+  margin-bottom: 6px !important;
+  border-radius: 2px !important;
+  background: rgba(255, 255, 255, 0.2) !important;
   transition: height 0.15s ease !important;
 }
 
 .art-progress:hover {
-  height: 5px !important;
+  height: 6px !important;
+}
+
+.art-progress-played {
+  background: var(--art-theme, #22c55e) !important;
+  border-radius: 2px !important;
+}
+
+.art-progress-loaded {
+  background: rgba(255, 255, 255, 0.3) !important;
+  border-radius: 2px !important;
 }
 
 .art-progress-indicator {
-  width: 12px !important;
-  height: 12px !important;
+  width: 14px !important;
+  height: 14px !important;
   border-radius: 50% !important;
   background: #fff !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
-  opacity: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease !important;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5) !important;
+  border: 2px solid var(--art-theme, #22c55e) !important;
+  transform: scale(0) !important;
+  transition: transform 0.15s ease !important;
 }
 
 .art-progress:hover .art-progress-indicator {
-  opacity: 1;
+  transform: scale(1) !important;
 }
 
-/* -------- 4. 底部控制栏紧凑化 -------- */
+/* -------- 4. 控制按钮区域 -------- */
 .art-controls {
-  padding: 0 8px !important;
-  height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  height: 36px !important;
+  padding: 0 !important;
 }
 
-.art-controls .art-control {
-  margin: 0 4px !important;
-  opacity: 0.9;
-  transition: opacity 0.2s ease, transform 0.15s ease !important;
+.art-controls-left,
+.art-controls-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
 }
 
-.art-controls .art-control:hover {
-  opacity: 1;
-  transform: scale(1.08);
+.art-control {
+  opacity: 0.9 !important;
+  transition: opacity 0.15s ease, transform 0.15s ease !important;
 }
 
-/* 控制按钮图标尺寸 */
-.art-controls .art-icon {
-  width: 22px !important;
-  height: 22px !important;
+.art-control:hover {
+  opacity: 1 !important;
+  transform: scale(1.1) !important;
 }
 
-/* 时间显示紧凑 */
+.art-control .art-icon {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+/* 时间显示 */
 .art-control-time {
-  font-size: 12px !important;
-  padding: 0 6px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  padding: 0 8px !important;
+  white-space: nowrap !important;
 }
 
-/* -------- 5. 中央播放按钮优化 -------- */
+/* -------- 5. 中央播放按钮 -------- */
 .art-state {
-  background: rgba(0, 0, 0, 0.45) !important;
-  backdrop-filter: blur(6px) !important;
-  -webkit-backdrop-filter: blur(6px) !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
   border-radius: 50% !important;
-  width: 56px !important;
-  height: 56px !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  transition: transform 0.2s ease, opacity 0.2s ease !important;
+  width: 60px !important;
+  height: 60px !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  transition: opacity 0.3s ease, transform 0.3s ease !important;
 }
 
 .art-state:hover {
-  transform: scale(1.05);
+  transform: scale(1.05) !important;
+  background: rgba(0, 0, 0, 0.6) !important;
 }
 
 .art-state .art-icon {
-  width: 26px !important;
-  height: 26px !important;
+  width: 28px !important;
+  height: 28px !important;
 }
 
 /* 隐藏状态时淡出 */
@@ -934,55 +987,69 @@ div[data-media-provider] video {
   pointer-events: none !important;
 }
 
-/* -------- 6. 设置面板优化 -------- */
+/* -------- 6. 设置面板 -------- */
 .art-setting-panel {
-  background: rgba(24, 24, 24, 0.96) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  background: rgba(20, 20, 20, 0.95) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
   border-radius: 12px !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
-  padding: 6px 0 !important;
-  min-width: 200px !important;
-  max-width: 320px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5) !important;
+  overflow: hidden !important;
+  min-width: 220px !important;
+  max-width: 340px !important;
 }
 
 .art-setting-item {
-  padding: 10px 16px !important;
-  font-size: 13px !important;
+  padding: 12px 16px !important;
+  font-size: 14px !important;
   transition: background 0.15s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
 }
 
 .art-setting-item:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
 }
 
 .art-setting-item-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
   flex-shrink: 0 !important;
+}
+
+.art-setting-item-left-text {
   white-space: nowrap !important;
 }
 
 .art-setting-item-right {
-  font-size: 12px !important;
-  opacity: 0.7;
-  margin-left: auto !important;
-  text-align: right !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  opacity: 0.7 !important;
+  font-size: 13px !important;
 }
 
-/* -------- 7. 右键菜单优化 -------- */
+.art-setting-item-right-tooltip {
+  white-space: nowrap !important;
+}
+
+/* -------- 7. 右键菜单 -------- */
 .art-contextmenu {
-  background: rgba(24, 24, 24, 0.96) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  background: rgba(20, 20, 20, 0.95) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
   border-radius: 10px !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4) !important;
-  padding: 4px !important;
-  min-width: 140px !important;
+  padding: 6px !important;
+  min-width: 150px !important;
 }
 
 .art-contextmenu-item {
-  padding: 8px 12px !important;
+  padding: 10px 14px !important;
   font-size: 13px !important;
   border-radius: 6px !important;
   transition: background 0.15s ease !important;
@@ -992,18 +1059,49 @@ div[data-media-provider] video {
   background: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* -------- 8. 移动端适配 -------- */
+/* -------- 8. 音量滑块 -------- */
+.art-volume-panel {
+  background: rgba(20, 20, 20, 0.9) !important;
+  backdrop-filter: blur(16px) !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  padding: 10px !important;
+}
+
+/* -------- 9. 提示信息 -------- */
+.art-notice {
+  top: auto !important;
+  bottom: 100px !important;
+}
+
+.art-notice-inner {
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(10px) !important;
+  border-radius: 8px !important;
+  padding: 10px 16px !important;
+  font-size: 14px !important;
+}
+
+/* -------- 10. 加载动画 -------- */
+.art-loading {
+  background: transparent !important;
+}
+
+/* -------- 11. 移动端适配 -------- */
 @media (max-width: 768px) {
+  .art-bottom {
+    bottom: 12px !important;
+    min-width: 200px !important;
+    max-width: calc(100% - 24px) !important;
+    padding: 6px 12px !important;
+    border-radius: 12px !important;
+  }
+
   .art-controls {
-    padding: 0 4px !important;
-    height: 36px !important;
+    height: 32px !important;
   }
 
-  .art-controls .art-control {
-    margin: 0 2px !important;
-  }
-
-  .art-controls .art-icon {
+  .art-control .art-icon {
     width: 20px !important;
     height: 20px !important;
   }
@@ -1014,34 +1112,12 @@ div[data-media-provider] video {
   }
 
   .art-state {
-    width: 48px !important;
-    height: 48px !important;
+    width: 50px !important;
+    height: 50px !important;
   }
 
   .art-state .art-icon {
-    width: 22px !important;
-    height: 22px !important;
+    width: 24px !important;
+    height: 24px !important;
   }
-
-  .art-setting-panel {
-    min-width: 180px !important;
-    max-width: 280px !important;
-  }
-}
-
-/* -------- 9. 音量滑块优化 -------- */
-.art-volume-slider {
-  background: rgba(24, 24, 24, 0.9) !important;
-  backdrop-filter: blur(10px) !important;
-  border-radius: 8px !important;
-  padding: 8px !important;
-}
-
-/* -------- 10. 提示信息优化 -------- */
-.art-notice {
-  background: rgba(0, 0, 0, 0.75) !important;
-  backdrop-filter: blur(8px) !important;
-  border-radius: 6px !important;
-  padding: 8px 14px !important;
-  font-size: 13px !important;
 }
