@@ -853,20 +853,20 @@ div[data-media-provider] video {
   left: 50% !important;
   transform: translateX(-50%) !important;
 
-  /* Sizing */
+  /* Sizing - Optimized to be less intrusive */
   width: auto !important;
-  min-width: 60%;
-  max-width: 90%;
+  min-width: 40%; /* Reduced from 60% to avoid blocking too much */
+  max-width: 80%;
 
-  /* Glassmorphism Effect */
-  background: rgba(20, 20, 20, 0.65) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
+  /* Glassmorphism Effect - More transparent */
+  background: rgba(15, 15, 15, 0.6) !important; /* More transparent */
+  backdrop-filter: blur(8px) !important; /* Slightly less blur */
+  -webkit-backdrop-filter: blur(8px) !important;
 
   /* Shape */
-  border-radius: 30px !important;
-  padding: 4px 20px !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 40px !important; /* More rounded */
+  padding: 6px 16px !important; /* Tighter padding */
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
 
   /* Animation */
   transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
@@ -880,7 +880,7 @@ div[data-media-provider] video {
 /* Hide controls state (Fade out & Slide down) */
 .art-hide-cursor .art-bottom {
   opacity: 0 !important;
-  transform: translateX(-50%) translateY(10px) !important;
+  transform: translateX(-50%) translateY(15px) !important; /* Slide down more */
   pointer-events: none !important;
 }
 
@@ -889,7 +889,7 @@ div[data-media-provider] video {
   /* Make it fit nicely within the floating bar */
   height: 3px !important;
   border-radius: 2px !important;
-  background: rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.15) !important;
   margin-bottom: 0 !important; /* Remove default spacing if any */
   transition: height 0.2s ease !important;
 }
@@ -906,23 +906,29 @@ div[data-media-provider] video {
 
 /* The indicator knob */
 .art-control-progress-indicator {
-  width: 10px !important;
-  height: 10px !important;
+  width: 12px !important;
+  height: 12px !important;
   background: #fff !important;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.4) !important;
+  transform: scale(0); /* Hide by default, show on hover */
+  transition: transform 0.2s ease;
+}
+
+.art-control-progress:hover .art-control-progress-indicator {
+  transform: scale(1);
 }
 
 /* 4. Controls Layout */
 .art-controls {
   /* Adjust spacing inside the bar */
-  margin-top: 4px !important;
+  margin-top: 2px !important; /* Reduced margin */
   overflow: visible !important; /* Allow tooltips to show */
 }
 
 .art-control {
   /* Spacing between icons */
-  margin-right: 10px !important;
-  opacity: 0.9;
+  margin-right: 8px !important; /* Reduced spacing */
+  opacity: 0.85;
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
@@ -938,45 +944,49 @@ div[data-media-provider] video {
 /* 5. Mobile Adaptations */
 @media (max-width: 768px) {
   .art-bottom {
-    width: 92% !important;
-    bottom: 16px !important;
-    padding: 4px 12px !important;
+    width: 96% !important;
+    max-width: 96% !important;
+    bottom: 12px !important;
+    padding: 4px 10px !important;
     min-width: unset !important;
+    border-radius: 20px !important; /* Less rounded on mobile to save space */
   }
 
   .art-control {
-    margin-right: 8px !important;
+    margin-right: 6px !important;
   }
 }
 
 /* 6. Center Play Button (Telegram Style) */
 .art-state {
   /* Make the center play/pause button more elegant */
-  background: rgba(0, 0, 0, 0.4) !important;
+  background: rgba(0, 0, 0, 0.3) !important;
   backdrop-filter: blur(4px);
   border-radius: 50% !important;
   width: 64px !important;
   height: 64px !important;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .art-state svg {
-  width: 32px !important;
-  height: 32px !important;
+  width: 28px !important;
+  height: 28px !important;
 }
 
 /* 7. Context Menu Customization */
 .art-contextmenu {
-  background: rgba(20, 20, 20, 0.9) !important;
-  backdrop-filter: blur(10px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 8px !important;
-  padding: 4px !important;
+  background: rgba(20, 20, 20, 0.95) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  padding: 6px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
 }
 
 .art-contextmenu-item {
-  border-radius: 4px !important;
+  border-radius: 6px !important;
   transition: background 0.2s ease !important;
+  font-size: 13px !important;
 }
 
 .art-contextmenu-item:hover {
@@ -985,13 +995,37 @@ div[data-media-provider] video {
 
 /* 8. Settings Panel Customization */
 .art-setting-panel {
-  background: rgba(20, 20, 20, 0.9) !important;
-  backdrop-filter: blur(10px) !important;
-  border-radius: 12px !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  width: 280px !important;
+  background: rgba(20, 20, 20, 0.95) !important;
+  backdrop-filter: blur(16px) !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  /* Fix for text truncation: Allow auto width with constraints */
+  width: auto !important;
+  min-width: 260px !important;
+  max-width: 360px !important;
+  padding: 8px 0 !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+.art-setting-item {
+  height: 40px !important; /* Increase height for better touch targets */
+  padding: 0 16px !important;
 }
 
 .art-setting-item:hover {
   background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.art-setting-item-left {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.art-setting-item-right {
+  font-size: 13px !important;
+  opacity: 0.8;
+}
+
+.art-setting-item-right-icon {
+  margin-left: 8px !important;
 }
