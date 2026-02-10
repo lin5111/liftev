@@ -22,8 +22,13 @@ COPY --from=deps /app/node_modules ./node_modules
 # 复制全部源代码
 COPY . .
 
-# 在构建阶段也显式设置 DOCKER_ENV，
+# 在构建阶段也显式设置 DOCKER_ENV 和 DOCKER_BUILD
 ENV DOCKER_ENV=true
+ENV DOCKER_BUILD=true
+
+# 弹弹play API 凭证（构建时注入，用于官方镜像开箱即用弹幕功能）
+ARG DANDANPLAY_APP_ID
+ARG DANDANPLAY_APP_SECRET
 
 # 生成生产构建
 RUN pnpm run build
@@ -39,6 +44,12 @@ ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 ENV DOCKER_ENV=true
+
+# 弹弹play API 凭证（从构建阶段继承，支持官方镜像开箱即用）
+ARG DANDANPLAY_APP_ID
+ARG DANDANPLAY_APP_SECRET
+ENV DANDANPLAY_APP_ID=${DANDANPLAY_APP_ID}
+ENV DANDANPLAY_APP_SECRET=${DANDANPLAY_APP_SECRET}
 
 # 从构建器中复制 standalone 输出
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, no-console, @typescript-eslint/no-non-null-assertion,react-hooks/exhaustive-deps,@typescript-eslint/no-empty-function */
+/* eslint-disable @typescript-eslint/no-explicit-any, no-console, @typescript-eslint/no-non-null-assertion,react-hooks/exhaustive-deps */
 
 'use client';
 
@@ -33,6 +33,8 @@ import {
   ExternalLink,
   FileText,
   FolderOpen,
+  MessageSquareText,
+  Package,
   Settings,
   Tv,
   Upload,
@@ -43,7 +45,7 @@ import { GripVertical } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { AdminConfig, AdminConfigResult } from '@/lib/admin.types';
+import { AdminConfig, DanmuCustomNode } from '@/lib/admin.types';
 import { getAuthInfoFromBrowserCookie } from '@/lib/auth';
 
 import DataMigration from '@/components/DataMigration';
@@ -132,21 +134,29 @@ const AlertModal = ({
   showConfirm = false,
 }: AlertModalProps) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // 确保组件已挂载到客户端
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
       setIsVisible(true);
       if (timer) {
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
           onClose();
         }, timer);
+        return () => clearTimeout(timeoutId);
       }
     } else {
       setIsVisible(false);
     }
   }, [isOpen, timer, onClose]);
 
-  if (!isOpen) return null;
+  // 未挂载或未打开时不渲染
+  if (!mounted || !isOpen) return null;
 
   const getIcon = () => {
     switch (type) {
@@ -176,7 +186,7 @@ const AlertModal = ({
 
   return createPortal(
     <div
-      className={`fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 transition-opacity duration-200 ${
+      className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity duration-200 ${
         isVisible ? 'opacity-100' : 'opacity-0'
       }`}
       onClick={onClose}
@@ -209,7 +219,7 @@ const AlertModal = ({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };
 
@@ -272,7 +282,7 @@ const useLoadingState = () => {
 
   const withLoading = async (
     key: string,
-    operation: () => Promise<any>
+    operation: () => Promise<any>,
   ): Promise<any> => {
     setLoading(key, true);
     try {
@@ -298,6 +308,8 @@ interface SiteConfig {
   DoubanImageProxy: string;
   DisableYellowFilter: boolean;
   FluidSearch: boolean;
+  // 登录页面背景图
+  LoginBackground: string;
 }
 
 // 视频源数据类型
@@ -442,7 +454,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
         (user) =>
           role === 'owner' ||
           (role === 'admin' &&
-            (user.role === 'user' || user.username === currentUsername))
+            (user.role === 'user' || user.username === currentUsername)),
       ).length || 0;
     return selectedUsers.size === selectableUserCount && selectedUsers.size > 0;
   }, [selectedUsers.size, config?.UserConfig?.Users, role, currentUsername]);
@@ -454,7 +466,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
   const handleUserGroupAction = async (
     action: 'add' | 'edit' | 'delete',
     groupName: string,
-    enabledApis?: string[]
+    enabledApis?: string[],
   ) => {
     return withLoading(`userGroup_${action}_${groupName}`, async () => {
       try {
@@ -488,9 +500,9 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
           action === 'add'
             ? '用户组添加成功'
             : action === 'edit'
-            ? '用户组更新成功'
-            : '用户组删除成功',
-          showAlert
+              ? '用户组更新成功'
+              : '用户组删除成功',
+          showAlert,
         );
       } catch (err) {
         showError(err instanceof Error ? err.message : '操作失败', showAlert);
@@ -509,7 +521,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
     handleUserGroupAction(
       'edit',
       editingUserGroup.name,
-      editingUserGroup.enabledApis
+      editingUserGroup.enabledApis,
     );
   };
 
@@ -517,7 +529,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
     // 计算会受影响的用户数量
     const affectedUsers =
       config?.UserConfig?.Users?.filter(
-        (user) => user.tags && user.tags.includes(groupName)
+        (user) => user.tags && user.tags.includes(groupName),
       ) || [];
 
     setDeletingUserGroup({
@@ -537,7 +549,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
       await handleUserGroupAction('delete', deletingUserGroup.name);
       setShowDeleteUserGroupModal(false);
       setDeletingUserGroup(null);
-    } catch (err) {
+    } catch {
       // 错误处理已在 handleUserGroupAction 中处理
     }
   };
@@ -554,7 +566,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
   // 为用户分配用户组
   const handleAssignUserGroup = async (
     username: string,
-    userGroups: string[]
+    userGroups: string[],
   ) => {
     return withLoading(`assignUserGroup_${username}`, async () => {
       try {
@@ -588,19 +600,19 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
 
   const handleUnbanUser = async (uname: string) => {
     await withLoading(`unbanUser_${uname}`, () =>
-      handleUserAction('unban', uname)
+      handleUserAction('unban', uname),
     );
   };
 
   const handleSetAdmin = async (uname: string) => {
     await withLoading(`setAdmin_${uname}`, () =>
-      handleUserAction('setAdmin', uname)
+      handleUserAction('setAdmin', uname),
     );
   };
 
   const handleRemoveAdmin = async (uname: string) => {
     await withLoading(`removeAdmin_${uname}`, () =>
-      handleUserAction('cancelAdmin', uname)
+      handleUserAction('cancelAdmin', uname),
     );
   };
 
@@ -611,7 +623,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
         'add',
         newUser.username,
         newUser.password,
-        newUser.userGroup
+        newUser.userGroup,
       );
       setNewUser({ username: '', password: '', userGroup: '' });
       setShowAddUserForm(false);
@@ -626,11 +638,11 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
         await handleUserAction(
           'changePassword',
           changePasswordUser.username,
-          changePasswordUser.password
+          changePasswordUser.password,
         );
         setChangePasswordUser({ username: '', password: '' });
         setShowChangePasswordForm(false);
-      }
+      },
     );
   };
 
@@ -674,15 +686,15 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
         try {
           await handleAssignUserGroup(
             selectedUserForGroup.username,
-            selectedUserGroups
+            selectedUserGroups,
           );
           setShowConfigureUserGroupModal(false);
           setSelectedUserForGroup(null);
           setSelectedUserGroups([]);
-        } catch (err) {
+        } catch {
           // 错误处理已在 handleAssignUserGroup 中处理
         }
-      }
+      },
     );
   };
 
@@ -708,14 +720,14 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
             (user) =>
               role === 'owner' ||
               (role === 'admin' &&
-                (user.role === 'user' || user.username === currentUsername))
+                (user.role === 'user' || user.username === currentUsername)),
           ).map((u) => u.username) || [];
         setSelectedUsers(new Set(selectableUsernames));
       } else {
         setSelectedUsers(new Set());
       }
     },
-    [config?.UserConfig?.Users, role, currentUsername]
+    [config?.UserConfig?.Users, role, currentUsername],
   );
 
   // 批量设置用户组
@@ -745,7 +757,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
         setSelectedUserGroup('');
         showSuccess(
           `已为 ${userCount} 个用户设置用户组: ${userGroup}`,
-          showAlert
+          showAlert,
         );
 
         // 刷新配置
@@ -812,7 +824,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
       | 'deleteUser',
     targetUsername: string,
     targetPassword?: string,
-    userGroup?: string
+    userGroup?: string,
   ) => {
     try {
       const res = await fetch('/api/admin/user', {
@@ -846,7 +858,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
         await handleUserAction('deleteUser', deletingUser);
         setShowDeleteUserModal(false);
         setDeletingUser(null);
-      } catch (err) {
+      } catch {
         // 错误处理已在 handleUserAction 中处理
       }
     });
@@ -902,7 +914,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
         </div>
 
         {/* 用户组列表 */}
-        <div className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-[20rem] overflow-y-auto overflow-x-auto relative'>
+        <div className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-80 overflow-y-auto overflow-x-auto relative'>
           <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
             <thead className='bg-gray-50 dark:bg-gray-900 sticky top-0 z-10'>
               <tr>
@@ -1149,7 +1161,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
 
         {/* 用户列表 */}
         <div
-          className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-[28rem] overflow-y-auto overflow-x-auto relative'
+          className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-112 overflow-y-auto overflow-x-auto relative'
           data-table='user-list'
         >
           <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
@@ -1164,7 +1176,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                         role === 'owner' ||
                         (role === 'admin' &&
                           (user.role === 'user' ||
-                            user.username === currentUsername))
+                            user.username === currentUsername)),
                     );
 
                     return hasAnyPermission ? (
@@ -1268,7 +1280,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                               onChange={(e) =>
                                 handleSelectUser(
                                   user.username,
-                                  e.target.checked
+                                  e.target.checked,
                                 )
                               }
                               className='w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
@@ -1286,15 +1298,15 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                               user.role === 'owner'
                                 ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300'
                                 : user.role === 'admin'
-                                ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                                  ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                             }`}
                           >
                             {user.role === 'owner'
                               ? '站长'
                               : user.role === 'admin'
-                              ? '管理员'
-                              : '普通用户'}
+                                ? '管理员'
+                                : '普通用户'}
                           </span>
                         </td>
                         <td className='px-6 py-4 whitespace-nowrap'>
@@ -1369,7 +1381,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                                 <button
                                   onClick={() => handleSetAdmin(user.username)}
                                   disabled={isLoading(
-                                    `setAdmin_${user.username}`
+                                    `setAdmin_${user.username}`,
                                   )}
                                   className={`${buttonStyles.roundedPurple} ${
                                     isLoading(`setAdmin_${user.username}`)
@@ -1386,7 +1398,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                                     handleRemoveAdmin(user.username)
                                   }
                                   disabled={isLoading(
-                                    `removeAdmin_${user.username}`
+                                    `removeAdmin_${user.username}`,
                                   )}
                                   className={`${
                                     buttonStyles.roundedSecondary
@@ -1404,7 +1416,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                                   <button
                                     onClick={() => handleBanUser(user.username)}
                                     disabled={isLoading(
-                                      `banUser_${user.username}`
+                                      `banUser_${user.username}`,
                                     )}
                                     className={`${buttonStyles.roundedDanger} ${
                                       isLoading(`banUser_${user.username}`)
@@ -1420,7 +1432,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                                       handleUnbanUser(user.username)
                                     }
                                     disabled={isLoading(
-                                      `unbanUser_${user.username}`
+                                      `unbanUser_${user.username}`,
                                     )}
                                     className={`${
                                       buttonStyles.roundedSuccess
@@ -1460,7 +1472,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
         selectedUser &&
         createPortal(
           <div
-            className='fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'
+            className='fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4'
             onClick={() => {
               setShowConfigureApisModal(false);
               setSelectedUser(null);
@@ -1545,7 +1557,9 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                               setSelectedApis([...selectedApis, source.key]);
                             } else {
                               setSelectedApis(
-                                selectedApis.filter((api) => api !== source.key)
+                                selectedApis.filter(
+                                  (api) => api !== source.key,
+                                ),
                               );
                             }
                           }}
@@ -1579,7 +1593,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                       onClick={() => {
                         const allApis =
                           config?.SourceConfig?.filter(
-                            (source) => !source.disabled
+                            (source) => !source.disabled,
                           ).map((s) => s.key) || [];
                         setSelectedApis(allApis);
                       }}
@@ -1613,7 +1627,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                   <button
                     onClick={handleSaveUserApis}
                     disabled={isLoading(
-                      `saveUserApis_${selectedUser?.username}`
+                      `saveUserApis_${selectedUser?.username}`,
                     )}
                     className={`px-6 py-2.5 text-sm font-medium ${
                       isLoading(`saveUserApis_${selectedUser?.username}`)
@@ -1629,14 +1643,14 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* 添加用户组弹窗 */}
       {showAddUserGroupForm &&
         createPortal(
           <div
-            className='fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'
+            className='fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4'
             onClick={() => {
               setShowAddUserGroupForm(false);
               setNewUserGroup({ name: '', enabledApis: [] });
@@ -1708,7 +1722,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                           <input
                             type='checkbox'
                             checked={newUserGroup.enabledApis.includes(
-                              source.key
+                              source.key,
                             )}
                             onChange={(e) => {
                               if (e.target.checked) {
@@ -1723,7 +1737,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                                 setNewUserGroup((prev) => ({
                                   ...prev,
                                   enabledApis: prev.enabledApis.filter(
-                                    (api) => api !== source.key
+                                    (api) => api !== source.key,
                                   ),
                                 }));
                               }
@@ -1761,7 +1775,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                         onClick={() => {
                           const allApis =
                             config?.SourceConfig?.filter(
-                              (source) => !source.disabled
+                              (source) => !source.disabled,
                             ).map((s) => s.key) || [];
                           setNewUserGroup((prev) => ({
                             ...prev,
@@ -1808,7 +1822,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* 编辑用户组弹窗 */}
@@ -1816,7 +1830,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
         editingUserGroup &&
         createPortal(
           <div
-            className='fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'
+            className='fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4'
             onClick={() => {
               setShowEditUserGroupForm(false);
               setEditingUserGroup(null);
@@ -1869,7 +1883,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                           <input
                             type='checkbox'
                             checked={editingUserGroup.enabledApis.includes(
-                              source.key
+                              source.key,
                             )}
                             onChange={(e) => {
                               if (e.target.checked) {
@@ -1882,7 +1896,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                                           source.key,
                                         ],
                                       }
-                                    : null
+                                    : null,
                                 );
                               } else {
                                 setEditingUserGroup((prev) =>
@@ -1890,10 +1904,10 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                                     ? {
                                         ...prev,
                                         enabledApis: prev.enabledApis.filter(
-                                          (api) => api !== source.key
+                                          (api) => api !== source.key,
                                         ),
                                       }
-                                    : null
+                                    : null,
                                 );
                               }
                             }}
@@ -1918,7 +1932,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                       <button
                         onClick={() =>
                           setEditingUserGroup((prev) =>
-                            prev ? { ...prev, enabledApis: [] } : null
+                            prev ? { ...prev, enabledApis: [] } : null,
                           )
                         }
                         className={buttonStyles.quickAction}
@@ -1929,10 +1943,10 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                         onClick={() => {
                           const allApis =
                             config?.SourceConfig?.filter(
-                              (source) => !source.disabled
+                              (source) => !source.disabled,
                             ).map((s) => s.key) || [];
                           setEditingUserGroup((prev) =>
-                            prev ? { ...prev, enabledApis: allApis } : null
+                            prev ? { ...prev, enabledApis: allApis } : null,
                           );
                         }}
                         className={buttonStyles.quickAction}
@@ -1956,7 +1970,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                     <button
                       onClick={handleEditUserGroup}
                       disabled={isLoading(
-                        `userGroup_edit_${editingUserGroup?.name}`
+                        `userGroup_edit_${editingUserGroup?.name}`,
                       )}
                       className={`px-6 py-2.5 text-sm font-medium ${
                         isLoading(`userGroup_edit_${editingUserGroup?.name}`)
@@ -1973,7 +1987,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* 配置用户组弹窗 */}
@@ -1981,7 +1995,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
         selectedUserForGroup &&
         createPortal(
           <div
-            className='fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'
+            className='fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4'
             onClick={() => {
               setShowConfigureUserGroupModal(false);
               setSelectedUserForGroup(null);
@@ -2092,18 +2106,18 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                   <button
                     onClick={handleSaveUserGroups}
                     disabled={isLoading(
-                      `saveUserGroups_${selectedUserForGroup?.username}`
+                      `saveUserGroups_${selectedUserForGroup?.username}`,
                     )}
                     className={`px-6 py-2.5 text-sm font-medium ${
                       isLoading(
-                        `saveUserGroups_${selectedUserForGroup?.username}`
+                        `saveUserGroups_${selectedUserForGroup?.username}`,
                       )
                         ? buttonStyles.disabled
                         : buttonStyles.primary
                     }`}
                   >
                     {isLoading(
-                      `saveUserGroups_${selectedUserForGroup?.username}`
+                      `saveUserGroups_${selectedUserForGroup?.username}`,
                     )
                       ? '配置中...'
                       : '确认配置'}
@@ -2112,7 +2126,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* 删除用户组确认弹窗 */}
@@ -2120,7 +2134,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
         deletingUserGroup &&
         createPortal(
           <div
-            className='fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'
+            className='fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4'
             onClick={() => {
               setShowDeleteUserGroupModal(false);
               setDeletingUserGroup(null);
@@ -2257,7 +2271,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
                   <button
                     onClick={handleConfirmDeleteUserGroup}
                     disabled={isLoading(
-                      `userGroup_delete_${deletingUserGroup?.name}`
+                      `userGroup_delete_${deletingUserGroup?.name}`,
                     )}
                     className={`px-6 py-2.5 text-sm font-medium ${
                       isLoading(`userGroup_delete_${deletingUserGroup?.name}`)
@@ -2273,7 +2287,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* 删除用户确认弹窗 */}
@@ -2281,7 +2295,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
         deletingUser &&
         createPortal(
           <div
-            className='fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'
+            className='fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4'
             onClick={() => {
               setShowDeleteUserModal(false);
               setDeletingUser(null);
@@ -2367,14 +2381,14 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* 批量设置用户组弹窗 */}
       {showBatchUserGroupModal &&
         createPortal(
           <div
-            className='fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'
+            className='fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4'
             onClick={() => {
               setShowBatchUserGroupModal(false);
               setSelectedUserGroup('');
@@ -2489,7 +2503,7 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* 通用弹窗组件 */}
@@ -2510,9 +2524,15 @@ const UserConfig = ({ config, role, refreshConfig }: UserConfigProps) => {
 const VideoSourceConfig = ({
   config,
   refreshConfig,
+  storageMode,
+  updateConfig,
 }: {
   config: AdminConfig | null;
   refreshConfig: () => Promise<void>;
+  storageMode: 'cloud' | 'local';
+  updateConfig: (
+    updater: (prev: AdminConfig | null) => AdminConfig | null,
+  ) => void;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -2530,7 +2550,7 @@ const VideoSourceConfig = ({
 
   // 批量操作相关状态
   const [selectedSources, setSelectedSources] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
 
   // 使用 useMemo 计算全选状态，避免每次渲染都重新计算
@@ -2599,7 +2619,7 @@ const VideoSourceConfig = ({
         delay: 150, // 长按 150ms 后触发，避免与滚动冲突
         tolerance: 5,
       },
-    })
+    }),
   );
 
   // 初始化
@@ -2613,8 +2633,103 @@ const VideoSourceConfig = ({
     }
   }, [config]);
 
+  // 本地模式下直接更新配置
+  const updateSourceConfigLocally = (
+    action: string,
+    payload: Record<string, any>,
+  ) => {
+    updateConfig((prev) => {
+      if (!prev) return prev;
+      const sources = [...(prev.SourceConfig || [])];
+
+      switch (action) {
+        case 'add': {
+          const newSource: DataSource = {
+            key: payload.key,
+            name: payload.name,
+            api: payload.api,
+            detail: payload.detail || '',
+            disabled: false,
+            is_adult: payload.is_adult || false,
+            from: 'custom',
+          };
+          sources.push(newSource);
+          break;
+        }
+        case 'delete': {
+          const idx = sources.findIndex((s) => s.key === payload.key);
+          if (idx !== -1) sources.splice(idx, 1);
+          break;
+        }
+        case 'enable': {
+          const source = sources.find((s) => s.key === payload.key);
+          if (source) source.disabled = false;
+          break;
+        }
+        case 'disable': {
+          const source = sources.find((s) => s.key === payload.key);
+          if (source) source.disabled = true;
+          break;
+        }
+        case 'update_adult': {
+          const source = sources.find((s) => s.key === payload.key);
+          if (source) source.is_adult = payload.is_adult;
+          break;
+        }
+        case 'sort': {
+          if (payload.order && Array.isArray(payload.order)) {
+            const orderMap = new Map(
+              payload.order.map((key: string, idx: number) => [key, idx]),
+            );
+            sources.sort((a, b) => {
+              const aIdx = orderMap.get(a.key) ?? 999;
+              const bIdx = orderMap.get(b.key) ?? 999;
+              return aIdx - bIdx;
+            });
+          }
+          break;
+        }
+        case 'batch_enable': {
+          payload.keys?.forEach((key: string) => {
+            const source = sources.find((s) => s.key === key);
+            if (source) source.disabled = false;
+          });
+          break;
+        }
+        case 'batch_disable': {
+          payload.keys?.forEach((key: string) => {
+            const source = sources.find((s) => s.key === key);
+            if (source) source.disabled = true;
+          });
+          break;
+        }
+        case 'batch_delete': {
+          payload.keys?.forEach((key: string) => {
+            const idx = sources.findIndex((s) => s.key === key);
+            if (idx !== -1) sources.splice(idx, 1);
+          });
+          break;
+        }
+      }
+
+      return { ...prev, SourceConfig: sources };
+    });
+  };
+
   // 通用 API 请求
   const callSourceApi = async (body: Record<string, any>) => {
+    // 本地模式：直接更新配置，不调用 API
+    if (storageMode === 'local') {
+      updateSourceConfigLocally(body.action, body);
+      showAlert({
+        type: 'success',
+        title: '操作成功',
+        message: '配置已保存到本地',
+        timer: 2000,
+      });
+      return;
+    }
+
     try {
       const resp = await fetch('/api/admin/source', {
         method: 'POST',
@@ -2624,6 +2739,21 @@ const VideoSourceConfig = ({
 
       if (!resp.ok) {
         const data = await resp.json().catch(() => ({}));
+
+        // 401 鉴权失败：保留表单，提示并引导重新登录
+        if (resp.status === 401) {
+          showError(
+            data.error ||
+              '登录已过期或未配置 AUTH_SECRET，请检查 Docker 环境变量后重新登录。',
+            showAlert,
+          );
+          // 轻量跳转到登录页，避免多次点击无响应
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 300);
+          throw new Error('Unauthorized');
+        }
+
         throw new Error(data.error || `操作失败: ${resp.status}`);
       }
 
@@ -2640,7 +2770,7 @@ const VideoSourceConfig = ({
     if (!target) return;
     const action = target.disabled ? 'enable' : 'disable';
     withLoading(`toggleSource_${key}`, () =>
-      callSourceApi({ action, key })
+      callSourceApi({ action, key }),
     ).catch(() => {
       console.error('操作失败', action, key);
     });
@@ -2656,7 +2786,7 @@ const VideoSourceConfig = ({
         action: 'update_adult',
         key,
         is_adult: newAdultStatus,
-      })
+      }),
     ).catch(() => {
       console.error('切换成人标记失败', key);
     });
@@ -2684,7 +2814,7 @@ const VideoSourceConfig = ({
     }
 
     withLoading(`deleteSource_${key}`, () =>
-      callSourceApi({ action: 'delete', key })
+      callSourceApi({ action: 'delete', key }),
     ).catch(() => {
       console.error('操作失败', 'delete', key);
     });
@@ -2728,7 +2858,7 @@ const VideoSourceConfig = ({
   const handleSaveOrder = () => {
     const order = sources.map((s) => s.key);
     withLoading('saveSourceOrder', () =>
-      callSourceApi({ action: 'sort', order })
+      callSourceApi({ action: 'sort', order }),
     )
       .then(() => {
         setOrderChanged(false);
@@ -2816,8 +2946,8 @@ const VideoSourceConfig = ({
         // 使用EventSource接收流式数据
         const eventSource = new EventSource(
           `/api/admin/source/validate?q=${encodeURIComponent(
-            searchKeyword.trim()
-          )}`
+            searchKeyword.trim(),
+          )}`,
         );
 
         eventSource.onmessage = (event) => {
@@ -2847,11 +2977,11 @@ const VideoSourceConfig = ({
                               data.status === 'valid'
                                 ? '搜索正常'
                                 : data.status === 'no_results'
-                                ? '无法搜索到结果'
-                                : '连接失败',
+                                  ? '无法搜索到结果'
+                                  : '连接失败',
                             resultCount: data.status === 'valid' ? 1 : 0,
                           }
-                        : r
+                        : r,
                     );
                   } else {
                     return [
@@ -2866,8 +2996,8 @@ const VideoSourceConfig = ({
                           data.status === 'valid'
                             ? '搜索正常'
                             : data.status === 'no_results'
-                            ? '无法搜索到结果'
-                            : '连接失败',
+                              ? '无法搜索到结果'
+                              : '连接失败',
                         resultCount: data.status === 'valid' ? 1 : 0,
                       },
                     ];
@@ -2877,7 +3007,7 @@ const VideoSourceConfig = ({
 
               case 'complete':
                 console.log(
-                  `检测完成，共检测 ${data.completedSources} 个视频源`
+                  `检测完成，共检测 ${data.completedSources} 个视频源`,
                 );
                 eventSource.close();
                 setIsValidating(false);
@@ -2922,6 +3052,38 @@ const VideoSourceConfig = ({
       }
     });
   };
+
+  // 一键选中失效视频源（状态为 no_results 或 invalid）
+  const handleSelectInvalidSources = useCallback(() => {
+    const invalidKeys = validationResults
+      .filter((r) => r.status === 'no_results' || r.status === 'invalid')
+      .map((r) => r.key);
+
+    if (invalidKeys.length === 0) {
+      showAlert({
+        type: 'warning',
+        title: '没有失效的视频源',
+        message: '当前没有检测到失效或无法搜索的视频源',
+        timer: 3000,
+      });
+      return;
+    }
+
+    setSelectedSources(new Set(invalidKeys));
+    showAlert({
+      type: 'success',
+      title: '已选中失效源',
+      message: `已选中 ${invalidKeys.length} 个失效或无法搜索的视频源`,
+      timer: 3000,
+    });
+  }, [validationResults, showAlert]);
+
+  // 获取失效视频源数量
+  const invalidSourceCount = useMemo(() => {
+    return validationResults.filter(
+      (r) => r.status === 'no_results' || r.status === 'invalid',
+    ).length;
+  }, [validationResults]);
 
   // 一键插入CSP模板
   const handleInsertCspTemplate = async () => {
@@ -3068,7 +3230,7 @@ const VideoSourceConfig = ({
   // 导入视频源
   const handleImportSources = async (
     file: File,
-    onProgress?: (current: number, total: number) => void
+    onProgress?: (current: number, total: number) => void,
   ) => {
     try {
       const text = await file.text();
@@ -3273,18 +3435,18 @@ const VideoSourceConfig = ({
           {source.key}
         </td>
         <td
-          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-[12rem] truncate'
+          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-48 truncate'
           title={source.api}
         >
           {source.api}
         </td>
         <td
-          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-[8rem] truncate'
+          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-32 truncate'
           title={source.detail || '-'}
         >
           {source.detail || '-'}
         </td>
-        <td className='px-6 py-4 whitespace-nowrap max-w-[1rem]'>
+        <td className='px-6 py-4 whitespace-nowrap max-w-4'>
           <span
             className={`px-2 py-1 text-xs rounded-full ${
               !source.disabled
@@ -3301,7 +3463,7 @@ const VideoSourceConfig = ({
             disabled={isLoading(`toggleAdult_${source.key}`)}
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
               source.is_adult
-                ? 'bg-gradient-to-r from-red-500 to-pink-500'
+                ? 'bg-linear-to-r from-red-500 to-pink-500'
                 : 'bg-gray-300 dark:bg-gray-600'
             } ${
               isLoading(`toggleAdult_${source.key}`)
@@ -3317,7 +3479,7 @@ const VideoSourceConfig = ({
             />
           </button>
         </td>
-        <td className='px-6 py-4 whitespace-nowrap max-w-[1rem]'>
+        <td className='px-6 py-4 whitespace-nowrap max-w-4'>
           {(() => {
             const status = getValidationStatus(source.key);
             if (!status) {
@@ -3381,7 +3543,7 @@ const VideoSourceConfig = ({
         setSelectedSources(new Set());
       }
     },
-    [sources]
+    [sources],
   );
 
   // 单个选择
@@ -3399,7 +3561,7 @@ const VideoSourceConfig = ({
 
   // 批量操作
   const handleBatchOperation = async (
-    action: 'batch_enable' | 'batch_disable' | 'batch_delete'
+    action: 'batch_enable' | 'batch_disable' | 'batch_delete',
   ) => {
     if (selectedSources.size === 0) {
       showAlert({
@@ -3417,10 +3579,10 @@ const VideoSourceConfig = ({
     // 对于批量删除，检查哪些是可以删除的（from='custom'）
     if (action === 'batch_delete') {
       const deletableSources = sources.filter(
-        (s) => selectedSources.has(s.key) && s.from === 'custom'
+        (s) => selectedSources.has(s.key) && s.from === 'custom',
       );
       const undeletableSources = sources.filter(
-        (s) => selectedSources.has(s.key) && s.from !== 'custom'
+        (s) => selectedSources.has(s.key) && s.from !== 'custom',
       );
 
       if (deletableSources.length === 0) {
@@ -3469,16 +3631,16 @@ const VideoSourceConfig = ({
       onConfirm: async () => {
         try {
           await withLoading(`batchSource_${action}`, () =>
-            callSourceApi({ action, keys })
+            callSourceApi({ action, keys }),
           );
 
           // 对于删除操作，显示实际删除的数量
           if (action === 'batch_delete') {
             const deletableCount = sources.filter(
-              (s) => selectedSources.has(s.key) && s.from === 'custom'
+              (s) => selectedSources.has(s.key) && s.from === 'custom',
             ).length;
             const undeletableCount = sources.filter(
-              (s) => selectedSources.has(s.key) && s.from !== 'custom'
+              (s) => selectedSources.has(s.key) && s.from !== 'custom',
             ).length;
 
             if (undeletableCount > 0) {
@@ -3551,7 +3713,7 @@ const VideoSourceConfig = ({
       {sources.some((s) => s.from === 'config') && (
         <div className='bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4'>
           <div className='flex items-start space-x-3'>
-            <div className='flex-shrink-0 mt-0.5'>
+            <div className='shrink-0 mt-0.5'>
               <svg
                 className='w-5 h-5 text-blue-600 dark:text-blue-400'
                 fill='currentColor'
@@ -3638,7 +3800,7 @@ const VideoSourceConfig = ({
                   className={`px-3 py-1 text-sm rounded-lg transition-colors flex items-center space-x-1 ${
                     isLoading('batchSource_mark_adult')
                       ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white'
+                      : 'bg-linear-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white'
                   }`}
                   title='将选中的视频源标记为成人资源'
                 >
@@ -3670,7 +3832,7 @@ const VideoSourceConfig = ({
               onClick={() =>
                 setImportExportModal({ isOpen: true, mode: 'import' })
               }
-              className='px-3 py-1 text-sm rounded-lg transition-colors flex items-center space-x-1 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white'
+              className='px-3 py-1 text-sm rounded-lg transition-colors flex items-center space-x-1 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white'
               title='从 JSON 文件导入视频源'
             >
               <Upload className='w-4 h-4' />
@@ -3681,7 +3843,7 @@ const VideoSourceConfig = ({
               onClick={() =>
                 setImportExportModal({ isOpen: true, mode: 'export' })
               }
-              className='px-3 py-1 text-sm rounded-lg transition-colors flex items-center space-x-1 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white'
+              className='px-3 py-1 text-sm rounded-lg transition-colors flex items-center space-x-1 bg-linear-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white'
               title={
                 selectedSources.size > 0
                   ? `导出选中的 ${selectedSources.size} 个视频源`
@@ -3712,6 +3874,32 @@ const VideoSourceConfig = ({
                 '有效性检测'
               )}
             </button>
+            {/* 选中失效源按钮 - 只在有检测结果且存在失效源时显示 */}
+            {!isValidating && invalidSourceCount > 0 && (
+              <button
+                onClick={handleSelectInvalidSources}
+                className='px-3 py-1 text-sm rounded-lg transition-colors flex items-center space-x-1.5 bg-linear-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-sm hover:shadow-md'
+                title={`一键选中 ${invalidSourceCount} 个失效或无法搜索的视频源`}
+              >
+                <svg
+                  className='w-4 h-4'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+                  />
+                </svg>
+                <span className='hidden sm:inline'>
+                  选中失效源({invalidSourceCount})
+                </span>
+                <span className='sm:hidden'>{invalidSourceCount}</span>
+              </button>
+            )}
             <button
               onClick={handleInsertCspTemplate}
               disabled={isLoading('insertCspTemplate')}
@@ -3720,7 +3908,7 @@ const VideoSourceConfig = ({
                   ? buttonStyles.disabled
                   : buttonStyles.roundedPurple.replace(
                       'inline-flex items-center px-3 py-1.5 rounded-full text-xs',
-                      'px-3 py-1 text-sm rounded-lg'
+                      'px-3 py-1 text-sm rounded-lg',
                     )
               }`}
               title='一键插入CSP模板源，用于快速验证CSP/jar功能'
@@ -3814,7 +4002,7 @@ const VideoSourceConfig = ({
               }
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
                 newSource.is_adult
-                  ? 'bg-gradient-to-r from-red-500 to-pink-500'
+                  ? 'bg-linear-to-r from-red-500 to-pink-500'
                   : 'bg-gray-300 dark:bg-gray-600'
               }`}
             >
@@ -3852,54 +4040,54 @@ const VideoSourceConfig = ({
 
       {/* 视频源表格 */}
       <div
-        className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-[28rem] overflow-y-auto overflow-x-auto relative'
+        className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-112 overflow-y-auto overflow-x-auto relative'
         data-table='source-list'
       >
-        <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
-          <thead className='bg-gray-50 dark:bg-gray-900 sticky top-0 z-10'>
-            <tr>
-              <th className='w-8' />
-              <th className='w-12 px-2 py-3 text-center'>
-                <input
-                  type='checkbox'
-                  checked={selectAll}
-                  onChange={(e) => handleSelectAll(e.target.checked)}
-                  className='w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
-                />
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                名称
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                Key
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                API 地址
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                Detail 地址
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                状态
-              </th>
-              <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                成人资源
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                有效性
-              </th>
-              <th className='px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                操作
-              </th>
-            </tr>
-          </thead>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-            autoScroll={false}
-            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-          >
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+          autoScroll={false}
+          modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+        >
+          <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
+            <thead className='bg-gray-50 dark:bg-gray-900 sticky top-0 z-10'>
+              <tr>
+                <th className='w-8' />
+                <th className='w-12 px-2 py-3 text-center'>
+                  <input
+                    type='checkbox'
+                    checked={selectAll}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className='w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
+                  />
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  名称
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  Key
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  API 地址
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  Detail 地址
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  状态
+                </th>
+                <th className='px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  成人资源
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  有效性
+                </th>
+                <th className='px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  操作
+                </th>
+              </tr>
+            </thead>
             <SortableContext
               items={sources.map((s) => s.key)}
               strategy={verticalListSortingStrategy}
@@ -3910,8 +4098,8 @@ const VideoSourceConfig = ({
                 ))}
               </tbody>
             </SortableContext>
-          </DndContext>
-        </table>
+          </table>
+        </DndContext>
       </div>
 
       {/* 保存排序按钮 */}
@@ -3935,7 +4123,7 @@ const VideoSourceConfig = ({
       {showValidationModal &&
         createPortal(
           <div
-            className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
+            className='fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50'
             onClick={() => setShowValidationModal(false)}
           >
             <div
@@ -3981,7 +4169,7 @@ const VideoSourceConfig = ({
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* 通用弹窗组件 */}
@@ -4009,7 +4197,7 @@ const VideoSourceConfig = ({
       {confirmModal.isOpen &&
         createPortal(
           <div
-            className='fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'
+            className='fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4'
             onClick={confirmModal.onCancel}
           >
             <div
@@ -4080,7 +4268,7 @@ const VideoSourceConfig = ({
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );
@@ -4119,7 +4307,7 @@ const CategoryConfig = ({
         delay: 150, // 长按 150ms 后触发，避免与滚动冲突
         tolerance: 5,
       },
-    })
+    }),
   );
 
   // 初始化
@@ -4158,7 +4346,7 @@ const CategoryConfig = ({
     if (!target) return;
     const action = target.disabled ? 'enable' : 'disable';
     withLoading(`toggleCategory_${query}_${type}`, () =>
-      callCategoryApi({ action, query, type })
+      callCategoryApi({ action, query, type }),
     ).catch(() => {
       console.error('操作失败', action, query, type);
     });
@@ -4166,7 +4354,7 @@ const CategoryConfig = ({
 
   const handleDelete = (query: string, type: 'movie' | 'tv') => {
     withLoading(`deleteCategory_${query}_${type}`, () =>
-      callCategoryApi({ action: 'delete', query, type })
+      callCategoryApi({ action: 'delete', query, type }),
     ).catch(() => {
       console.error('操作失败', 'delete', query, type);
     });
@@ -4198,10 +4386,10 @@ const CategoryConfig = ({
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const oldIndex = categories.findIndex(
-      (c) => `${c.query}:${c.type}` === active.id
+      (c) => `${c.query}:${c.type}` === active.id,
     );
     const newIndex = categories.findIndex(
-      (c) => `${c.query}:${c.type}` === over.id
+      (c) => `${c.query}:${c.type}` === over.id,
     );
     setCategories((prev) => arrayMove(prev, oldIndex, newIndex));
     setOrderChanged(true);
@@ -4210,7 +4398,7 @@ const CategoryConfig = ({
   const handleSaveOrder = () => {
     const order = categories.map((c) => `${c.query}:${c.type}`);
     withLoading('saveCategoryOrder', () =>
-      callCategoryApi({ action: 'sort', order })
+      callCategoryApi({ action: 'sort', order }),
     )
       .then(() => {
         setOrderChanged(false);
@@ -4258,12 +4446,12 @@ const CategoryConfig = ({
           </span>
         </td>
         <td
-          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-[12rem] truncate'
+          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-48 truncate'
           title={category.query}
         >
           {category.query}
         </td>
-        <td className='px-6 py-4 whitespace-nowrap max-w-[1rem]'>
+        <td className='px-6 py-4 whitespace-nowrap max-w-4'>
           <span
             className={`px-2 py-1 text-xs rounded-full ${
               !category.disabled
@@ -4278,7 +4466,7 @@ const CategoryConfig = ({
           <button
             onClick={() => handleToggleEnable(category.query, category.type)}
             disabled={isLoading(
-              `toggleCategory_${category.query}_${category.type}`
+              `toggleCategory_${category.query}_${category.type}`,
             )}
             className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${
               !category.disabled
@@ -4296,7 +4484,7 @@ const CategoryConfig = ({
             <button
               onClick={() => handleDelete(category.query, category.type)}
               disabled={isLoading(
-                `deleteCategory_${category.query}_${category.type}`
+                `deleteCategory_${category.query}_${category.type}`,
               )}
               className={`${buttonStyles.roundedSecondary} ${
                 isLoading(`deleteCategory_${category.query}_${category.type}`)
@@ -4395,35 +4583,35 @@ const CategoryConfig = ({
       )}
 
       {/* 分类表格 */}
-      <div className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-[28rem] overflow-y-auto overflow-x-auto relative'>
-        <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
-          <thead className='bg-gray-50 dark:bg-gray-900 sticky top-0 z-10'>
-            <tr>
-              <th className='w-8' />
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                分类名称
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                类型
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                搜索关键词
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                状态
-              </th>
-              <th className='px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                操作
-              </th>
-            </tr>
-          </thead>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-            autoScroll={false}
-            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-          >
+      <div className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-112 overflow-y-auto overflow-x-auto relative'>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+          autoScroll={false}
+          modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+        >
+          <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
+            <thead className='bg-gray-50 dark:bg-gray-900 sticky top-0 z-10'>
+              <tr>
+                <th className='w-8' />
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  分类名称
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  类型
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  搜索关键词
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  状态
+                </th>
+                <th className='px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  操作
+                </th>
+              </tr>
+            </thead>
             <SortableContext
               items={categories.map((c) => `${c.query}:${c.type}`)}
               strategy={verticalListSortingStrategy}
@@ -4437,8 +4625,8 @@ const CategoryConfig = ({
                 ))}
               </tbody>
             </SortableContext>
-          </DndContext>
-        </table>
+          </table>
+        </DndContext>
       </div>
 
       {/* 保存排序按钮 */}
@@ -4476,9 +4664,15 @@ const CategoryConfig = ({
 const ConfigFileComponent = ({
   config,
   refreshConfig,
+  storageMode,
+  updateConfig,
 }: {
   config: AdminConfig | null;
   refreshConfig: () => Promise<void>;
+  storageMode: 'cloud' | 'local';
+  updateConfig: (
+    updater: (prev: AdminConfig | null) => AdminConfig | null,
+  ) => void;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -4535,6 +4729,100 @@ const ConfigFileComponent = ({
     });
   };
 
+  // 本地模式：解析配置文件并更新源配置
+  const parseAndApplyConfigFile = (configFileContent: string) => {
+    interface ConfigFileStruct {
+      api_site?: {
+        [key: string]: {
+          key?: string;
+          api: string;
+          name: string;
+          detail?: string;
+          is_adult?: boolean;
+        };
+      };
+      custom_category?: {
+        name?: string;
+        type: 'movie' | 'tv';
+        query: string;
+      }[];
+      lives?: {
+        [key: string]: { name: string; url: string; ua?: string; epg?: string };
+      };
+    }
+
+    let parsed: ConfigFileStruct = {};
+    try {
+      if (configFileContent && configFileContent.trim()) {
+        parsed = JSON.parse(configFileContent);
+      }
+    } catch {
+      // 解析失败时使用空对象
+    }
+
+    updateConfig((prev) => {
+      if (!prev) return prev;
+
+      // 保留自定义源（from !== 'config'）
+      const customSources = (prev.SourceConfig || []).filter(
+        (s) => s.from !== 'config',
+      );
+      const customCategories = (prev.CustomCategories || []).filter(
+        (c) => c.from !== 'config',
+      );
+      const customLives = (prev.LiveConfig || []).filter(
+        (l) => l.from !== 'config',
+      );
+
+      // 从配置文件解析新的预设源
+      const configSources = Object.entries(parsed.api_site || {}).map(
+        ([key, site]) => ({
+          key,
+          name: site.name,
+          api: site.api,
+          detail: site.detail,
+          is_adult: site.is_adult || false,
+          from: 'config' as const,
+          disabled: false,
+        }),
+      );
+
+      const configCategories = (parsed.custom_category || []).map((cat) => ({
+        name: cat.name || cat.query,
+        type: cat.type,
+        query: cat.query,
+        from: 'config' as const,
+        disabled: false,
+      }));
+
+      const configLives = Object.entries(parsed.lives || {}).map(
+        ([key, live]) => ({
+          key,
+          name: live.name,
+          url: live.url,
+          ua: live.ua,
+          epg: live.epg,
+          channelNumber: 0,
+          from: 'config' as const,
+          disabled: false,
+        }),
+      );
+
+      return {
+        ...prev,
+        ConfigFile: configFileContent,
+        ConfigSubscribtion: {
+          URL: subscriptionUrl,
+          AutoUpdate: autoUpdate,
+          LastCheck: lastCheckTime || new Date().toISOString(),
+        },
+        SourceConfig: [...configSources, ...customSources],
+        CustomCategories: [...configCategories, ...customCategories],
+        LiveConfig: [...configLives, ...customLives],
+      };
+    });
+  };
+
   // 保存配置文件
   const handleSave = async () => {
     // 检查是否要清空配置
@@ -4552,7 +4840,7 @@ const ConfigFileComponent = ({
             `你正在清空配置文件，这将会：\n` +
             `• 删除 ${configSources.length} 个系统预设视频源\n` +
             `• 保留所有自定义添加的视频源\n\n` +
-            `确定要继续吗？`
+            `确定要继续吗？`,
         );
 
         if (!confirmed) {
@@ -4562,6 +4850,25 @@ const ConfigFileComponent = ({
     }
 
     await withLoading('saveConfig', async () => {
+      // 本地模式：直接解析并更新配置
+      if (storageMode === 'local') {
+        parseAndApplyConfigFile(configContent);
+        if (
+          isEmpty &&
+          (config?.SourceConfig?.filter((s) => s.from === 'config').length ??
+            0) > 0
+        ) {
+          showSuccess(
+            '配置文件已清空，系统预设视频源已删除，自定义源已保留',
+            showAlert,
+          );
+        } else {
+          showSuccess('配置文件保存成功', showAlert);
+        }
+        return;
+      }
+
+      // 云端模式：调用 API
       try {
         const resp = await fetch('/api/admin/config_file', {
           method: 'POST',
@@ -4586,7 +4893,7 @@ const ConfigFileComponent = ({
         ) {
           showSuccess(
             '配置文件已清空，系统预设视频源已删除，自定义源已保留',
-            showAlert
+            showAlert,
           );
         } else {
           showSuccess('配置文件保存成功', showAlert);
@@ -4769,6 +5076,7 @@ const SiteConfigComponent = ({
     DoubanImageProxy: '',
     DisableYellowFilter: false,
     FluidSearch: true,
+    LoginBackground: 'https://pan.yyds.nyc.mn/background.png',
   });
 
   // 豆瓣数据源相关状态
@@ -4832,6 +5140,9 @@ const SiteConfigComponent = ({
         DoubanImageProxy: config.SiteConfig.DoubanImageProxy || '',
         DisableYellowFilter: config.SiteConfig.DisableYellowFilter || false,
         FluidSearch: config.SiteConfig.FluidSearch || true,
+        LoginBackground:
+          config.SiteConfig.LoginBackground ||
+          'https://pan.yyds.nyc.mn/background.png',
       });
     }
   }, [config]);
@@ -4969,7 +5280,7 @@ const SiteConfigComponent = ({
             >
               {
                 doubanDataSourceOptions.find(
-                  (option) => option.value === siteSettings.DoubanProxyType
+                  (option) => option.value === siteSettings.DoubanProxyType,
                 )?.label
               }
             </button>
@@ -5002,7 +5313,7 @@ const SiteConfigComponent = ({
                   >
                     <span className='truncate'>{option.label}</span>
                     {siteSettings.DoubanProxyType === option.value && (
-                      <Check className='w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 ml-2' />
+                      <Check className='w-4 h-4 text-green-600 dark:text-green-400 shrink-0 ml-2' />
                     )}
                   </button>
                 ))}
@@ -5021,7 +5332,7 @@ const SiteConfigComponent = ({
                 onClick={() =>
                   window.open(
                     getThanksInfo(siteSettings.DoubanProxyType)!.url,
-                    '_blank'
+                    '_blank',
                   )
                 }
                 className='flex items-center justify-center gap-1.5 w-full px-3 text-xs text-gray-500 dark:text-gray-400 cursor-pointer'
@@ -5072,14 +5383,15 @@ const SiteConfigComponent = ({
               type='button'
               onClick={() =>
                 setIsDoubanImageProxyDropdownOpen(
-                  !isDoubanImageProxyDropdownOpen
+                  !isDoubanImageProxyDropdownOpen,
                 )
               }
               className='w-full px-3 py-2.5 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm hover:border-gray-400 dark:hover:border-gray-500 text-left'
             >
               {
                 doubanImageProxyTypeOptions.find(
-                  (option) => option.value === siteSettings.DoubanImageProxyType
+                  (option) =>
+                    option.value === siteSettings.DoubanImageProxyType,
                 )?.label
               }
             </button>
@@ -5112,7 +5424,7 @@ const SiteConfigComponent = ({
                   >
                     <span className='truncate'>{option.label}</span>
                     {siteSettings.DoubanImageProxyType === option.value && (
-                      <Check className='w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 ml-2' />
+                      <Check className='w-4 h-4 text-green-600 dark:text-green-400 shrink-0 ml-2' />
                     )}
                   </button>
                 ))}
@@ -5131,7 +5443,7 @@ const SiteConfigComponent = ({
                 onClick={() =>
                   window.open(
                     getThanksInfo(siteSettings.DoubanImageProxyType)!.url,
-                    '_blank'
+                    '_blank',
                   )
                 }
                 className='flex items-center justify-center gap-1.5 w-full px-3 text-xs text-gray-500 dark:text-gray-400 cursor-pointer'
@@ -5280,6 +5592,60 @@ const SiteConfigComponent = ({
         </p>
       </div>
 
+      {/* 登录页面背景图设置 */}
+      <div className='space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700'>
+        <div className='flex items-center gap-2'>
+          <h4 className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+            🖼️ 登录页面背景设置
+          </h4>
+        </div>
+        <p className='text-xs text-gray-500 dark:text-gray-400 -mt-2'>
+          设置登录页面的背景图片。支持本地图片路径（如
+          /background.png）或外部图片直链。留空则使用默认动态背景。
+        </p>
+        <div>
+          <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>
+            背景图片地址
+          </label>
+          <input
+            type='text'
+            placeholder='例如: /background.png 或 https://example.com/bg.jpg'
+            value={siteSettings.LoginBackground}
+            onChange={(e) =>
+              setSiteSettings((prev) => ({
+                ...prev,
+                LoginBackground: e.target.value,
+              }))
+            }
+            className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400'
+          />
+        </div>
+        {/* 背景图预览 */}
+        {siteSettings.LoginBackground && (
+          <div className='mt-3'>
+            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+              背景预览
+            </label>
+            <div className='relative w-full h-32 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600'>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={siteSettings.LoginBackground}
+                alt='背景预览'
+                className='w-full h-full object-cover'
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <div className='absolute inset-0 bg-black/30 flex items-center justify-center'>
+                <span className='text-white text-sm font-medium px-3 py-1 bg-black/50 rounded-lg'>
+                  登录背景预览
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* 操作按钮 */}
       <div className='flex justify-end'>
         <button
@@ -5313,9 +5679,15 @@ const SiteConfigComponent = ({
 const LiveSourceConfig = ({
   config,
   refreshConfig,
+  storageMode,
+  updateConfig,
 }: {
   config: AdminConfig | null;
   refreshConfig: () => Promise<void>;
+  storageMode: 'cloud' | 'local';
+  updateConfig: (
+    updater: (prev: AdminConfig | null) => AdminConfig | null,
+  ) => void;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -5347,7 +5719,7 @@ const LiveSourceConfig = ({
         delay: 150, // 长按 150ms 后触发，避免与滚动冲突
         tolerance: 5,
       },
-    })
+    }),
   );
 
   // 初始化
@@ -5359,8 +5731,88 @@ const LiveSourceConfig = ({
     }
   }, [config]);
 
+  // 本地模式下直接更新配置
+  const updateLiveConfigLocally = (
+    action: string,
+    payload: Record<string, any>,
+  ) => {
+    updateConfig((prev) => {
+      if (!prev) return prev;
+      const sources = [...(prev.LiveConfig || [])];
+
+      switch (action) {
+        case 'add': {
+          const newSource: LiveDataSource = {
+            key: payload.key,
+            name: payload.name,
+            url: payload.url,
+            ua: payload.ua || '',
+            epg: payload.epg || '',
+            disabled: false,
+            from: 'custom',
+            channelNumber: 0,
+          };
+          sources.push(newSource);
+          break;
+        }
+        case 'delete': {
+          const idx = sources.findIndex((s) => s.key === payload.key);
+          if (idx !== -1) sources.splice(idx, 1);
+          break;
+        }
+        case 'enable': {
+          const source = sources.find((s) => s.key === payload.key);
+          if (source) source.disabled = false;
+          break;
+        }
+        case 'disable': {
+          const source = sources.find((s) => s.key === payload.key);
+          if (source) source.disabled = true;
+          break;
+        }
+        case 'update': {
+          const source = sources.find((s) => s.key === payload.key);
+          if (source) {
+            source.name = payload.name ?? source.name;
+            source.url = payload.url ?? source.url;
+            source.ua = payload.ua ?? source.ua;
+            source.epg = payload.epg ?? source.epg;
+          }
+          break;
+        }
+        case 'sort': {
+          if (payload.order && Array.isArray(payload.order)) {
+            const orderMap = new Map(
+              payload.order.map((key: string, idx: number) => [key, idx]),
+            );
+            sources.sort((a, b) => {
+              const aIdx = orderMap.get(a.key) ?? 999;
+              const bIdx = orderMap.get(b.key) ?? 999;
+              return aIdx - bIdx;
+            });
+          }
+          break;
+        }
+      }
+
+      return { ...prev, LiveConfig: sources };
+    });
+  };
+
   // 通用 API 请求
   const callLiveSourceApi = async (body: Record<string, any>) => {
+    // 本地模式：直接更新配置，不调用 API
+    if (storageMode === 'local') {
+      updateLiveConfigLocally(body.action, body);
+      showAlert({
+        type: 'success',
+        title: '操作成功',
+        message: '配置已保存到本地',
+        timer: 2000,
+      });
+      return;
+    }
+
     try {
       const resp = await fetch('/api/admin/live', {
         method: 'POST',
@@ -5386,7 +5838,7 @@ const LiveSourceConfig = ({
     if (!target) return;
     const action = target.disabled ? 'enable' : 'disable';
     withLoading(`toggleLiveSource_${key}`, () =>
-      callLiveSourceApi({ action, key })
+      callLiveSourceApi({ action, key }),
     ).catch(() => {
       console.error('操作失败', action, key);
     });
@@ -5394,7 +5846,7 @@ const LiveSourceConfig = ({
 
   const handleDelete = (key: string) => {
     withLoading(`deleteLiveSource_${key}`, () =>
-      callLiveSourceApi({ action: 'delete', key })
+      callLiveSourceApi({ action: 'delete', key }),
     ).catch(() => {
       console.error('操作失败', 'delete', key);
     });
@@ -5494,7 +5946,7 @@ const LiveSourceConfig = ({
   const handleSaveOrder = () => {
     const order = liveSources.map((s) => s.key);
     withLoading('saveLiveSourceOrder', () =>
-      callLiveSourceApi({ action: 'sort', order })
+      callLiveSourceApi({ action: 'sort', order }),
     )
       .then(() => {
         setOrderChanged(false);
@@ -5535,19 +5987,19 @@ const LiveSourceConfig = ({
           {liveSource.key}
         </td>
         <td
-          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-[12rem] truncate'
+          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-48 truncate'
           title={liveSource.url}
         >
           {liveSource.url}
         </td>
         <td
-          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-[8rem] truncate'
+          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-32 truncate'
           title={liveSource.epg || '-'}
         >
           {liveSource.epg || '-'}
         </td>
         <td
-          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-[8rem] truncate'
+          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-32 truncate'
           title={liveSource.ua || '-'}
         >
           {liveSource.ua || '-'}
@@ -5557,7 +6009,7 @@ const LiveSourceConfig = ({
             ? liveSource.channelNumber
             : '-'}
         </td>
-        <td className='px-6 py-4 whitespace-nowrap max-w-[1rem]'>
+        <td className='px-6 py-4 whitespace-nowrap max-w-4'>
           <span
             className={`px-2 py-1 text-xs rounded-full ${
               !liveSource.disabled
@@ -5754,7 +6206,7 @@ const LiveSourceConfig = ({
                 value={editingLiveSource.name}
                 onChange={(e) =>
                   setEditingLiveSource((prev) =>
-                    prev ? { ...prev, name: e.target.value } : null
+                    prev ? { ...prev, name: e.target.value } : null,
                   )
                 }
                 className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
@@ -5780,7 +6232,7 @@ const LiveSourceConfig = ({
                 value={editingLiveSource.url}
                 onChange={(e) =>
                   setEditingLiveSource((prev) =>
-                    prev ? { ...prev, url: e.target.value } : null
+                    prev ? { ...prev, url: e.target.value } : null,
                   )
                 }
                 className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
@@ -5795,7 +6247,7 @@ const LiveSourceConfig = ({
                 value={editingLiveSource.epg}
                 onChange={(e) =>
                   setEditingLiveSource((prev) =>
-                    prev ? { ...prev, epg: e.target.value } : null
+                    prev ? { ...prev, epg: e.target.value } : null,
                   )
                 }
                 className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
@@ -5810,7 +6262,7 @@ const LiveSourceConfig = ({
                 value={editingLiveSource.ua}
                 onChange={(e) =>
                   setEditingLiveSource((prev) =>
-                    prev ? { ...prev, ua: e.target.value } : null
+                    prev ? { ...prev, ua: e.target.value } : null,
                   )
                 }
                 className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
@@ -5847,46 +6299,46 @@ const LiveSourceConfig = ({
 
       {/* 直播源表格 */}
       <div
-        className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-[28rem] overflow-y-auto overflow-x-auto relative'
+        className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-112 overflow-y-auto overflow-x-auto relative'
         data-table='live-source-list'
       >
-        <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
-          <thead className='bg-gray-50 dark:bg-gray-900 sticky top-0 z-10'>
-            <tr>
-              <th className='w-8' />
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                名称
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                Key
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                M3U 地址
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                节目单地址
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                自定义 UA
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                频道数
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                状态
-              </th>
-              <th className='px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                操作
-              </th>
-            </tr>
-          </thead>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-            autoScroll={false}
-            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-          >
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+          autoScroll={false}
+          modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+        >
+          <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
+            <thead className='bg-gray-50 dark:bg-gray-900 sticky top-0 z-10'>
+              <tr>
+                <th className='w-8' />
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  名称
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  Key
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  M3U 地址
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  节目单地址
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  自定义 UA
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  频道数
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  状态
+                </th>
+                <th className='px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  操作
+                </th>
+              </tr>
+            </thead>
             <SortableContext
               items={liveSources.map((s) => s.key)}
               strategy={verticalListSortingStrategy}
@@ -5897,8 +6349,8 @@ const LiveSourceConfig = ({
                 ))}
               </tbody>
             </SortableContext>
-          </DndContext>
-        </table>
+          </table>
+        </DndContext>
       </div>
 
       {/* 保存排序按钮 */}
@@ -5932,6 +6384,1597 @@ const LiveSourceConfig = ({
   );
 };
 
+// 弹幕配置组件
+interface DanmuConfigProps {
+  config: AdminConfig | null;
+  refreshConfig: () => Promise<void>;
+}
+
+interface DanmuNodeFormState {
+  name: string;
+  url: string;
+  token: string;
+}
+
+interface DanmuNodeHealthState {
+  status: 'idle' | 'testing' | 'ok' | 'error';
+  latency?: number;
+  error?: string;
+}
+
+interface DanmuSettingsState {
+  enabled: boolean;
+  serverUrl: string;
+  token: string;
+  platform: string;
+  sourceOrder: string;
+  mergeSourcePairs: string;
+  bilibiliCookie: string;
+  convertTopBottomToScroll: boolean;
+  convertColor: 'default' | 'white' | 'color';
+  danmuLimit: number;
+  blockedWords: string;
+  danmuOutputFormat: 'json' | 'xml';
+  simplifiedTraditional: 'default' | 'simplified' | 'traditional';
+  customNodes: DanmuCustomNode[];
+}
+
+const DANMU_CUSTOM_NODE_STORAGE_KEY = 'decotv:danmu:custom-nodes';
+const MAX_CUSTOM_DANMU_NODE_COUNT = 64;
+
+const RECOMMENDED_DANMU_SERVER = {
+  name: '官方推荐/稳定节点',
+  url: 'https://danmu.katelya.eu.org',
+  token: 'decotv',
+  badge: '官方推荐',
+};
+
+const DEPLOYMENT_GUIDE_URL = 'https://github.com/huangxd-/danmu_api';
+
+const DEMO_DANMU_SERVERS = [RECOMMENDED_DANMU_SERVER];
+
+const SOURCE_OPTIONS = [
+  { value: '360', label: '360搜索' },
+  { value: 'vod', label: 'VOD采集' },
+  { value: 'tmdb', label: 'TMDB' },
+  { value: 'douban', label: '豆瓣' },
+  { value: 'tencent', label: '腾讯视频' },
+  { value: 'youku', label: '优酷' },
+  { value: 'iqiyi', label: '爱奇艺' },
+  { value: 'imgo', label: '芒果TV' },
+  { value: 'bilibili', label: '哔哩哔哩' },
+  { value: 'migu', label: '咪咕视频' },
+  { value: 'sohu', label: '搜狐视频' },
+  { value: 'leshi', label: '乐视' },
+  { value: 'xigua', label: '西瓜视频' },
+  { value: 'renren', label: '人人视频' },
+  { value: 'hanjutv', label: '韩剧TV' },
+  { value: 'bahamut', label: '巴哈姆特' },
+  { value: 'dandan', label: '弹弹play' },
+  { value: 'animeko', label: 'Animeko' },
+  { value: 'custom', label: '自定义源' },
+];
+
+const PLATFORM_OPTIONS = [
+  { value: 'qiyi', label: '爱奇艺' },
+  { value: 'bilibili1', label: '哔哩哔哩' },
+  { value: 'imgo', label: '芒果TV' },
+  { value: 'youku', label: '优酷' },
+  { value: 'qq', label: '腾讯视频' },
+  { value: 'migu', label: '咪咕' },
+  { value: 'sohu', label: '搜狐' },
+  { value: 'leshi', label: '乐视' },
+  { value: 'xigua', label: '西瓜' },
+  { value: 'renren', label: '人人' },
+  { value: 'hanjutv', label: '韩剧TV' },
+  { value: 'bahamut', label: '巴哈姆特' },
+  { value: 'dandan', label: '弹弹play' },
+  { value: 'animeko', label: 'Animeko' },
+  { value: 'custom', label: '自定义' },
+];
+
+const DanmuConfigComponent = ({ config, refreshConfig }: DanmuConfigProps) => {
+  const { alertModal, showAlert, hideAlert } = useAlertModal();
+  const { isLoading, withLoading } = useLoadingState();
+
+  const [danmuSettings, setDanmuSettings] = useState<DanmuSettingsState>({
+    enabled: false,
+    serverUrl: RECOMMENDED_DANMU_SERVER.url,
+    token: RECOMMENDED_DANMU_SERVER.token,
+    platform: '',
+    sourceOrder: '',
+    mergeSourcePairs: '',
+    bilibiliCookie: '',
+    convertTopBottomToScroll: false,
+    convertColor: 'default' as 'default' | 'white' | 'color',
+    danmuLimit: 0,
+    blockedWords: '',
+    danmuOutputFormat: 'json' as 'json' | 'xml',
+    simplifiedTraditional: 'default' as
+      | 'default'
+      | 'simplified'
+      | 'traditional',
+    customNodes: [],
+  });
+
+  const [testResult, setTestResult] = useState<{
+    success?: boolean;
+    latency?: number;
+    searchAvailable?: boolean;
+    searchResultCount?: number;
+    error?: string;
+  } | null>(null);
+
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isNodeModalOpen, setIsNodeModalOpen] = useState(false);
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [nodeForm, setNodeForm] = useState<DanmuNodeFormState>({
+    name: '',
+    url: '',
+    token: '',
+  });
+  const [nodeHealthMap, setNodeHealthMap] = useState<
+    Record<string, DanmuNodeHealthState>
+  >({});
+
+  const normalizeServerUrl = useCallback((value: string) => {
+    return value.trim().replace(/\/+$/, '');
+  }, []);
+
+  const createNodeId = useCallback(() => {
+    if (
+      typeof crypto !== 'undefined' &&
+      typeof crypto.randomUUID === 'function'
+    ) {
+      return crypto.randomUUID();
+    }
+    return `node_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+  }, []);
+
+  // 统一过滤与规范化节点数据，避免脏数据写入配置。
+  const sanitizeCustomNodes = useCallback(
+    (value: unknown): DanmuCustomNode[] => {
+      if (!Array.isArray(value)) {
+        return [];
+      }
+
+      const now = Date.now();
+      const nodes: DanmuCustomNode[] = [];
+      for (const item of value) {
+        if (!item || typeof item !== 'object') {
+          continue;
+        }
+
+        const raw = item as Partial<DanmuCustomNode>;
+        const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+        const url =
+          typeof raw.url === 'string' ? normalizeServerUrl(raw.url) : '';
+        if (!name || !url) {
+          continue;
+        }
+
+        const token = typeof raw.token === 'string' ? raw.token.trim() : '';
+        const createdAt =
+          typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt)
+            ? raw.createdAt
+            : now;
+        const updatedAt =
+          typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt)
+            ? raw.updatedAt
+            : now;
+        const id =
+          typeof raw.id === 'string' && raw.id.trim()
+            ? raw.id.trim()
+            : `node_${createdAt}_${nodes.length}`;
+
+        nodes.push({ id, name, url, token, createdAt, updatedAt });
+        if (nodes.length >= MAX_CUSTOM_DANMU_NODE_COUNT) {
+          break;
+        }
+      }
+
+      return nodes;
+    },
+    [normalizeServerUrl],
+  );
+
+  const loadCustomNodesFromStorage = useCallback((): DanmuCustomNode[] => {
+    if (typeof window === 'undefined') {
+      return [];
+    }
+    try {
+      const raw = window.localStorage.getItem(DANMU_CUSTOM_NODE_STORAGE_KEY);
+      if (!raw) {
+        return [];
+      }
+      return sanitizeCustomNodes(JSON.parse(raw));
+    } catch {
+      return [];
+    }
+  }, [sanitizeCustomNodes]);
+
+  const persistCustomNodesToStorage = useCallback(
+    (nodes: DanmuCustomNode[]) => {
+      if (typeof window === 'undefined') {
+        return;
+      }
+      try {
+        window.localStorage.setItem(
+          DANMU_CUSTOM_NODE_STORAGE_KEY,
+          JSON.stringify(nodes),
+        );
+      } catch {
+        // localStorage 异常不影响主流程。
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (config?.DanmuConfig) {
+      const configCustomNodes = sanitizeCustomNodes(
+        config.DanmuConfig.customNodes,
+      );
+      const customNodes =
+        configCustomNodes.length > 0
+          ? configCustomNodes
+          : loadCustomNodesFromStorage();
+      setDanmuSettings({
+        enabled: config.DanmuConfig.enabled ?? false,
+        serverUrl: normalizeServerUrl(config.DanmuConfig.serverUrl ?? ''),
+        token: config.DanmuConfig.token ?? '',
+        platform: config.DanmuConfig.platform ?? '',
+        sourceOrder: config.DanmuConfig.sourceOrder ?? '',
+        mergeSourcePairs: config.DanmuConfig.mergeSourcePairs ?? '',
+        bilibiliCookie: config.DanmuConfig.bilibiliCookie ?? '',
+        convertTopBottomToScroll:
+          config.DanmuConfig.convertTopBottomToScroll ?? false,
+        convertColor: config.DanmuConfig.convertColor ?? 'default',
+        danmuLimit: config.DanmuConfig.danmuLimit ?? 0,
+        blockedWords: config.DanmuConfig.blockedWords ?? '',
+        danmuOutputFormat: config.DanmuConfig.danmuOutputFormat ?? 'json',
+        simplifiedTraditional:
+          config.DanmuConfig.simplifiedTraditional ?? 'default',
+        customNodes,
+      });
+      return;
+    }
+    const fallbackNodes = loadCustomNodesFromStorage();
+    if (fallbackNodes.length > 0) {
+      setDanmuSettings((prev) => ({
+        ...prev,
+        customNodes: fallbackNodes,
+      }));
+    }
+  }, [
+    config,
+    loadCustomNodesFromStorage,
+    normalizeServerUrl,
+    sanitizeCustomNodes,
+  ]);
+
+  useEffect(() => {
+    persistCustomNodesToStorage(danmuSettings.customNodes);
+  }, [danmuSettings.customNodes, persistCustomNodesToStorage]);
+
+  // 构建实际 API 地址（baseUrl + token 拼接）
+  const getFullServerUrl = (
+    serverUrl = danmuSettings.serverUrl,
+    token = danmuSettings.token,
+  ) => {
+    const base = normalizeServerUrl(serverUrl);
+    if (!base) return '';
+    const safeToken = token.trim();
+    if (safeToken) {
+      return `${base}/${safeToken}`;
+    }
+    return base;
+  };
+
+  const persistDanmuSettings = useCallback(
+    async (nextSettings: DanmuSettingsState, successMessage: string) => {
+      const resp = await fetch('/api/admin/danmu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextSettings),
+      });
+      if (!resp.ok) {
+        const data = (await resp.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(data.error || '保存失败');
+      }
+      persistCustomNodesToStorage(nextSettings.customNodes);
+      await refreshConfig();
+      setDanmuSettings(nextSettings);
+      showSuccess(successMessage, showAlert);
+    },
+    [persistCustomNodesToStorage, refreshConfig, showAlert],
+  );
+
+  const handleSave = async () => {
+    await withLoading('saveDanmuConfig', async () => {
+      try {
+        await persistDanmuSettings(danmuSettings, '弹幕配置保存成功');
+      } catch (err) {
+        showError(`保存弹幕配置失败: ${(err as Error).message}`, showAlert);
+      }
+    });
+  };
+
+  const handleTest = async () => {
+    const url = getFullServerUrl();
+    if (!url) {
+      showError('请先填写弹幕服务器地址', showAlert);
+      return;
+    }
+    setTestResult(null);
+    await withLoading('testDanmuServer', async () => {
+      try {
+        const resp = await fetch('/api/admin/danmu/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ serverUrl: url }),
+        });
+        const data = await resp.json();
+        setTestResult(data);
+      } catch (err) {
+        setTestResult({
+          success: false,
+          error: (err as Error).message,
+        });
+      }
+    });
+  };
+
+  const handleSelectDemoServer = (server: { url: string; token?: string }) => {
+    setDanmuSettings((prev) => ({
+      ...prev,
+      serverUrl: normalizeServerUrl(server.url),
+      token: server.token ?? prev.token,
+    }));
+    setTestResult(null);
+  };
+
+  const isNodeSelected = (node: DanmuCustomNode) => {
+    return (
+      normalizeServerUrl(danmuSettings.serverUrl) ===
+        normalizeServerUrl(node.url) &&
+      danmuSettings.token.trim() === node.token.trim()
+    );
+  };
+
+  const openAddNodeModal = () => {
+    setEditingNodeId(null);
+    setNodeForm({ name: '', url: '', token: '' });
+    setIsNodeModalOpen(true);
+  };
+
+  const openEditNodeModal = (node: DanmuCustomNode) => {
+    setEditingNodeId(node.id);
+    setNodeForm({
+      name: node.name,
+      url: node.url,
+      token: node.token,
+    });
+    setIsNodeModalOpen(true);
+  };
+
+  const closeNodeModal = () => {
+    setIsNodeModalOpen(false);
+    setEditingNodeId(null);
+    setNodeForm({ name: '', url: '', token: '' });
+  };
+
+  const handleSubmitNode = () => {
+    const name = nodeForm.name.trim();
+    const url = normalizeServerUrl(nodeForm.url);
+    const token = nodeForm.token.trim();
+
+    if (!name || !url) {
+      showError('节点名称和服务地址不能为空', showAlert);
+      return;
+    }
+
+    if (
+      !editingNodeId &&
+      danmuSettings.customNodes.length >= MAX_CUSTOM_DANMU_NODE_COUNT
+    ) {
+      showError(
+        `最多仅支持 ${MAX_CUSTOM_DANMU_NODE_COUNT} 个自定义节点`,
+        showAlert,
+      );
+      return;
+    }
+
+    const now = Date.now();
+    setDanmuSettings((prev) => {
+      if (editingNodeId) {
+        return {
+          ...prev,
+          customNodes: prev.customNodes.map((item) =>
+            item.id === editingNodeId
+              ? { ...item, name, url, token, updatedAt: now }
+              : item,
+          ),
+        };
+      }
+
+      const nextNode: DanmuCustomNode = {
+        id: createNodeId(),
+        name,
+        url,
+        token,
+        createdAt: now,
+        updatedAt: now,
+      };
+      return {
+        ...prev,
+        customNodes: [nextNode, ...prev.customNodes],
+      };
+    });
+
+    if (editingNodeId) {
+      setNodeHealthMap((prev) => {
+        const next = { ...prev };
+        delete next[editingNodeId];
+        return next;
+      });
+    }
+
+    setTestResult(null);
+    closeNodeModal();
+    showSuccess(editingNodeId ? '节点更新成功' : '节点添加成功', showAlert);
+  };
+
+  const handleDeleteNode = (node: DanmuCustomNode) => {
+    if (!window.confirm(`确认删除节点「${node.name}」吗？`)) {
+      return;
+    }
+
+    setDanmuSettings((prev) => ({
+      ...prev,
+      customNodes: prev.customNodes.filter((item) => item.id !== node.id),
+    }));
+    setNodeHealthMap((prev) => {
+      const next = { ...prev };
+      delete next[node.id];
+      return next;
+    });
+    showSuccess('节点已删除', showAlert);
+  };
+
+  const handleApplyNode = async (node: DanmuCustomNode) => {
+    const nextSettings: DanmuSettingsState = {
+      ...danmuSettings,
+      enabled: true,
+      serverUrl: node.url,
+      token: node.token,
+    };
+
+    await withLoading(`applyDanmuNode_${node.id}`, async () => {
+      try {
+        await persistDanmuSettings(nextSettings, `已应用节点：${node.name}`);
+        setTestResult(null);
+      } catch (err) {
+        showError(`应用节点失败: ${(err as Error).message}`, showAlert);
+      }
+    });
+  };
+
+  const handleTestNode = async (node: DanmuCustomNode) => {
+    const fullUrl = getFullServerUrl(node.url, node.token);
+    if (!fullUrl) {
+      showError('节点地址不合法', showAlert);
+      return;
+    }
+
+    setNodeHealthMap((prev) => ({
+      ...prev,
+      [node.id]: { status: 'testing' },
+    }));
+
+    await withLoading(`testDanmuNode_${node.id}`, async () => {
+      try {
+        const resp = await fetch('/api/admin/danmu/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ serverUrl: fullUrl }),
+        });
+        const data = (await resp.json()) as {
+          success?: boolean;
+          latency?: number;
+          error?: string;
+        };
+
+        if (data.success) {
+          setNodeHealthMap((prev) => ({
+            ...prev,
+            [node.id]: {
+              status: 'ok',
+              latency:
+                typeof data.latency === 'number' &&
+                Number.isFinite(data.latency)
+                  ? data.latency
+                  : undefined,
+            },
+          }));
+          return;
+        }
+
+        setNodeHealthMap((prev) => ({
+          ...prev,
+          [node.id]: {
+            status: 'error',
+            error: data.error || '连接失败',
+          },
+        }));
+      } catch (err) {
+        setNodeHealthMap((prev) => ({
+          ...prev,
+          [node.id]: {
+            status: 'error',
+            error: (err as Error).message || '连接失败',
+          },
+        }));
+      }
+    });
+  };
+
+  const toggleSourceOrder = (source: string) => {
+    setDanmuSettings((prev) => {
+      const current = prev.sourceOrder
+        ? prev.sourceOrder
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+      const idx = current.indexOf(source);
+      if (idx >= 0) {
+        current.splice(idx, 1);
+      } else {
+        current.push(source);
+      }
+      return { ...prev, sourceOrder: current.join(',') };
+    });
+  };
+
+  const togglePlatform = (platform: string) => {
+    setDanmuSettings((prev) => {
+      const current = prev.platform
+        ? prev.platform
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+      const idx = current.indexOf(platform);
+      if (idx >= 0) {
+        current.splice(idx, 1);
+      } else {
+        current.push(platform);
+      }
+      return { ...prev, platform: current.join(',') };
+    });
+  };
+
+  const selectedSources = danmuSettings.sourceOrder
+    ? danmuSettings.sourceOrder
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  const selectedPlatforms = danmuSettings.platform
+    ? danmuSettings.platform
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  const customNodes = danmuSettings.customNodes;
+
+  const getNodeHealthView = (nodeId: string) => {
+    const health = nodeHealthMap[nodeId];
+    if (!health || health.status === 'idle') {
+      return (
+        <span className='inline-flex rounded-full bg-gray-100 dark:bg-gray-700/40 text-gray-600 dark:text-gray-300 px-2 py-0.5 text-[11px]'>
+          未测试
+        </span>
+      );
+    }
+    if (health.status === 'testing') {
+      return (
+        <span className='inline-flex rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 text-[11px]'>
+          测试中...
+        </span>
+      );
+    }
+    if (health.status === 'ok') {
+      return (
+        <span className='inline-flex rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[11px]'>
+          {typeof health.latency === 'number' ? `${health.latency}ms` : '可用'}
+        </span>
+      );
+    }
+    return (
+      <span
+        className='inline-flex rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-0.5 text-[11px]'
+        title={health.error || '连接失败'}
+      >
+        不可用
+      </span>
+    );
+  };
+
+  return (
+    <div className='space-y-6'>
+      {/* 顶部状态提示 */}
+      <div
+        className={`rounded-lg border p-4 ${
+          danmuSettings.enabled
+            ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800'
+            : 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700'
+        }`}
+      >
+        <div className='flex items-center justify-between'>
+          <div className='flex items-center gap-3'>
+            <div
+              className={`w-2.5 h-2.5 rounded-full ${
+                danmuSettings.enabled
+                  ? 'bg-emerald-500 animate-pulse'
+                  : 'bg-gray-400'
+              }`}
+            />
+            <div>
+              <p className='text-sm font-medium text-gray-900 dark:text-gray-100'>
+                {danmuSettings.enabled
+                  ? '自定义弹幕服务已启用'
+                  : '使用内置弹弹play弹幕服务'}
+              </p>
+              <p className='text-xs text-gray-500 dark:text-gray-400 mt-0.5'>
+                {danmuSettings.enabled
+                  ? danmuSettings.serverUrl
+                    ? `服务器: ${getFullServerUrl()}`
+                    : '请配置弹幕服务器地址'
+                  : '当前使用 Docker 镜像内置的弹弹play API 提供弹幕'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() =>
+              setDanmuSettings((prev) => ({ ...prev, enabled: !prev.enabled }))
+            }
+            className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors ${
+              danmuSettings.enabled
+                ? buttonStyles.toggleOn
+                : buttonStyles.toggleOff
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full transition-transform ${
+                buttonStyles.toggleThumb
+              } ${
+                danmuSettings.enabled
+                  ? buttonStyles.toggleThumbOn
+                  : buttonStyles.toggleThumbOff
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* 服务器配置区域 */}
+      {danmuSettings.enabled && (
+        <div className='space-y-6'>
+          {/* 自定义弹幕提示 */}
+          <div className='rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/15 p-4'>
+            <div className='flex items-start gap-2'>
+              <AlertTriangle className='w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5' />
+              <div className='space-y-1'>
+                <p className='text-sm font-medium text-amber-900 dark:text-amber-200'>
+                  内置演示站仅供测试，极其不稳定，强烈建议用户自行部署。
+                </p>
+                <p className='text-xs text-amber-700 dark:text-amber-300 flex flex-wrap items-center gap-1.5'>
+                  自部署教程:
+                  <a
+                    href={DEPLOYMENT_GUIDE_URL}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='inline-flex items-center gap-1 font-medium underline hover:text-amber-900 dark:hover:text-amber-100'
+                  >
+                    huangxd-/danmu_api
+                    <ExternalLink className='w-3 h-3' />
+                  </a>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 服务器地址 & Token */}
+          <div className='bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden'>
+            <div className='p-4 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50'>
+              <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2'>
+                <span className='w-1 h-4 bg-blue-500 rounded-full'></span>
+                服务器连接
+              </h4>
+              <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+                配置 LogVar 弹幕 API 服务器地址和访问令牌
+              </p>
+            </div>
+            <div className='p-4 space-y-4'>
+              {/* 服务器地址 */}
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5'>
+                  服务器地址
+                </label>
+                <div className='flex gap-2'>
+                  <input
+                    type='text'
+                    value={danmuSettings.serverUrl}
+                    onChange={(e) =>
+                      setDanmuSettings((prev) => ({
+                        ...prev,
+                        serverUrl: e.target.value,
+                      }))
+                    }
+                    placeholder='如 http://192.168.1.7:9321 或 https://your-domain.com'
+                    className='flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder-gray-400 dark:placeholder-gray-500'
+                  />
+                  <button
+                    onClick={handleTest}
+                    disabled={
+                      isLoading('testDanmuServer') || !danmuSettings.serverUrl
+                    }
+                    className={`shrink-0 px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-1.5 ${
+                      isLoading('testDanmuServer') || !danmuSettings.serverUrl
+                        ? buttonStyles.disabled
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md'
+                    }`}
+                  >
+                    {isLoading('testDanmuServer') ? (
+                      <svg
+                        className='w-4 h-4 animate-spin'
+                        viewBox='0 0 24 24'
+                        fill='none'
+                      >
+                        <circle
+                          className='opacity-25'
+                          cx='12'
+                          cy='12'
+                          r='10'
+                          stroke='currentColor'
+                          strokeWidth='4'
+                        />
+                        <path
+                          className='opacity-75'
+                          fill='currentColor'
+                          d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z'
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className='w-4 h-4'
+                        fill='none'
+                        stroke='currentColor'
+                        viewBox='0 0 24 24'
+                      >
+                        <path
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                          strokeWidth='2'
+                          d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+                        />
+                      </svg>
+                    )}
+                    {isLoading('testDanmuServer') ? '测试中...' : '连通测试'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Token */}
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5'>
+                  API Token
+                  <span className='text-xs text-gray-400 dark:text-gray-500 font-normal ml-2'>
+                    官方稳定节点默认 decotv，留空则不携带 token
+                  </span>
+                </label>
+                <input
+                  type='text'
+                  value={danmuSettings.token}
+                  onChange={(e) =>
+                    setDanmuSettings((prev) => ({
+                      ...prev,
+                      token: e.target.value,
+                    }))
+                  }
+                  placeholder='decotv'
+                  className='w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono placeholder-gray-400 dark:placeholder-gray-500'
+                />
+              </div>
+
+              {/* 拼接后完整地址显示 */}
+              {danmuSettings.serverUrl && (
+                <div className='bg-gray-50 dark:bg-gray-900/30 rounded-lg p-3 border border-gray-100 dark:border-gray-700/50'>
+                  <p className='text-xs text-gray-500 dark:text-gray-400 mb-1'>
+                    完整 API 端点
+                  </p>
+                  <p className='text-sm font-mono text-gray-700 dark:text-gray-300 break-all'>
+                    {getFullServerUrl()}
+                  </p>
+                </div>
+              )}
+
+              {/* 连通测试结果 */}
+              {testResult && (
+                <div
+                  className={`rounded-lg border p-3 ${
+                    testResult.success
+                      ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800'
+                      : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'
+                  }`}
+                >
+                  <div className='flex items-start gap-2'>
+                    {testResult.success ? (
+                      <CheckCircle className='w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5' />
+                    ) : (
+                      <AlertCircle className='w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5' />
+                    )}
+                    <div className='text-sm'>
+                      <p
+                        className={`font-medium ${testResult.success ? 'text-emerald-800 dark:text-emerald-300' : 'text-red-800 dark:text-red-300'}`}
+                      >
+                        {testResult.success ? '服务器连接成功' : '连接失败'}
+                      </p>
+                      {testResult.success && (
+                        <div className='mt-1 space-y-0.5 text-emerald-700 dark:text-emerald-400'>
+                          <p>延迟: {testResult.latency}ms</p>
+                          <p>
+                            搜索接口:
+                            {testResult.searchAvailable
+                              ? ` 可用（测试返回 ${testResult.searchResultCount} 条结果）`
+                              : ' 不可用'}
+                          </p>
+                        </div>
+                      )}
+                      {testResult.error && (
+                        <p className='mt-1 text-red-600 dark:text-red-400'>
+                          {testResult.error}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 推荐节点快速选择 */}
+          <div className='bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden'>
+            <div className='p-4 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50'>
+              <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2'>
+                <span className='w-1 h-4 bg-purple-500 rounded-full'></span>
+                推荐节点（含稳定源）
+              </h4>
+              <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+                已内置官方推荐稳定节点；历史演示站通常不稳定，建议优先使用自建服务。
+              </p>
+            </div>
+            <div className='p-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2'>
+                {DEMO_DANMU_SERVERS.map((server) => {
+                  const isSelected = danmuSettings.serverUrl === server.url;
+                  return (
+                    <button
+                      key={server.url}
+                      onClick={() => handleSelectDemoServer(server)}
+                      className={`text-left p-3 rounded-lg border-2 transition-all ${
+                        isSelected
+                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700 bg-white dark:bg-gray-800'
+                      }`}
+                    >
+                      <p
+                        className={`text-sm font-medium ${
+                          isSelected
+                            ? 'text-purple-700 dark:text-purple-300'
+                            : 'text-gray-800 dark:text-gray-200'
+                        }`}
+                      >
+                        {server.name}
+                      </p>
+                      {server.badge && (
+                        <div className='mt-1'>
+                          <span className='inline-flex rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 text-[11px] font-medium'>
+                            {server.badge}
+                          </span>
+                        </div>
+                      )}
+                      <p className='text-xs font-mono text-gray-500 dark:text-gray-400 mt-0.5 truncate'>
+                        {server.url}
+                      </p>
+                      {server.token && (
+                        <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+                          Token:{' '}
+                          <span className='font-mono'>{server.token}</span>
+                        </p>
+                      )}
+                      {isSelected && (
+                        <div className='flex items-center gap-1 mt-1'>
+                          <Check className='w-3 h-3 text-purple-500' />
+                          <span className='text-xs text-purple-600 dark:text-purple-400'>
+                            已选择
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className='bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden'>
+            <div className='p-4 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between gap-3'>
+              <div>
+                <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2'>
+                  <span className='w-1 h-4 bg-emerald-500 rounded-full'></span>
+                  自定义节点库
+                </h4>
+                <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+                  管理多个弹幕节点，支持添加、编辑、删除、延迟测试和一键应用
+                </p>
+              </div>
+              <button
+                type='button'
+                onClick={openAddNodeModal}
+                className={buttonStyles.primarySmall}
+              >
+                添加节点
+              </button>
+            </div>
+            <div className='p-4'>
+              {customNodes.length === 0 ? (
+                <div className='rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-6 text-center text-sm text-gray-500 dark:text-gray-400'>
+                  暂无自定义节点，点击右上角“添加节点”
+                </div>
+              ) : (
+                <div className='space-y-2'>
+                  {customNodes.map((node) => {
+                    const selected = isNodeSelected(node);
+                    const testLoadingKey = `testDanmuNode_${node.id}`;
+                    const applyLoadingKey = `applyDanmuNode_${node.id}`;
+                    return (
+                      <div
+                        key={node.id}
+                        className={`rounded-lg border p-3 transition-all ${
+                          selected
+                            ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-900/20'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/20'
+                        }`}
+                      >
+                        <div className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
+                          <div className='min-w-0 flex-1'>
+                            <div className='flex items-center gap-2'>
+                              <p className='text-sm font-medium text-gray-800 dark:text-gray-100 truncate'>
+                                {node.name}
+                              </p>
+                              {selected && (
+                                <span className='inline-flex rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[11px]'>
+                                  当前使用
+                                </span>
+                              )}
+                            </div>
+                            <p className='mt-1 text-xs font-mono text-gray-500 dark:text-gray-400 break-all'>
+                              {node.url}
+                            </p>
+                            {node.token && (
+                              <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
+                                Token:{' '}
+                                <span className='font-mono'>{node.token}</span>
+                              </p>
+                            )}
+                          </div>
+                          <div className='flex flex-wrap items-center gap-2'>
+                            {getNodeHealthView(node.id)}
+                            <button
+                              type='button'
+                              onClick={() => handleTestNode(node)}
+                              disabled={isLoading(testLoadingKey)}
+                              className={`px-2 py-1 text-xs rounded-md ${
+                                isLoading(testLoadingKey)
+                                  ? buttonStyles.disabledSmall
+                                  : buttonStyles.secondarySmall
+                              }`}
+                            >
+                              {isLoading(testLoadingKey)
+                                ? '测试中...'
+                                : '测试延迟'}
+                            </button>
+                            <button
+                              type='button'
+                              onClick={() => handleApplyNode(node)}
+                              disabled={isLoading(applyLoadingKey)}
+                              className={`px-2 py-1 text-xs rounded-md ${
+                                isLoading(applyLoadingKey)
+                                  ? buttonStyles.disabledSmall
+                                  : buttonStyles.successSmall
+                              }`}
+                            >
+                              {isLoading(applyLoadingKey)
+                                ? '应用中...'
+                                : '使用此节点'}
+                            </button>
+                            <button
+                              type='button'
+                              onClick={() => openEditNodeModal(node)}
+                              className={buttonStyles.primarySmall}
+                            >
+                              编辑
+                            </button>
+                            <button
+                              type='button'
+                              onClick={() => handleDeleteNode(node)}
+                              className={buttonStyles.dangerSmall}
+                            >
+                              删除
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 弹幕来源平台优先级 */}
+          <div className='bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden'>
+            <div className='p-4 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50'>
+              <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2'>
+                <span className='w-1 h-4 bg-amber-500 rounded-full'></span>
+                弹幕来源平台优先级
+              </h4>
+              <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+                选择并排列弹幕优先匹配的视频平台，留空则自动匹配
+              </p>
+            </div>
+            <div className='p-4'>
+              <div className='flex flex-wrap gap-2'>
+                {PLATFORM_OPTIONS.map((opt) => {
+                  const isActive = selectedPlatforms.includes(opt.value);
+                  const order = selectedPlatforms.indexOf(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => togglePlatform(opt.value)}
+                      className={`relative inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        isActive
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 ring-2 ring-amber-300 dark:ring-amber-700'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700/40 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {isActive && (
+                        <span className='mr-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold'>
+                          {order + 1}
+                        </span>
+                      )}
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedPlatforms.length > 0 && (
+                <p className='text-xs text-gray-500 dark:text-gray-400 mt-2'>
+                  当前优先级: {selectedPlatforms.join(' > ')}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* 采集源配置 */}
+          <div className='bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden'>
+            <div className='p-4 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50'>
+              <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2'>
+                <span className='w-1 h-4 bg-cyan-500 rounded-full'></span>
+                采集源排序
+              </h4>
+              <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+                选择启用的采集源并按优先级排列，未选择则使用服务器默认配置
+              </p>
+            </div>
+            <div className='p-4'>
+              <div className='flex flex-wrap gap-2'>
+                {SOURCE_OPTIONS.map((opt) => {
+                  const isActive = selectedSources.includes(opt.value);
+                  const order = selectedSources.indexOf(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => toggleSourceOrder(opt.value)}
+                      className={`relative inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        isActive
+                          ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200 ring-2 ring-cyan-300 dark:ring-cyan-700'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700/40 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {isActive && (
+                        <span className='mr-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-cyan-500 text-white text-[10px] font-bold'>
+                          {order + 1}
+                        </span>
+                      )}
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedSources.length > 0 && (
+                <p className='text-xs text-gray-500 dark:text-gray-400 mt-2'>
+                  当前排序: {selectedSources.join(' > ')}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* 高级配置折叠区 */}
+          <div className='bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden'>
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className='w-full p-4 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100/50 dark:hover:bg-gray-700/50 transition-colors'
+            >
+              <div className='flex items-center gap-2'>
+                <span className='w-1 h-4 bg-gray-400 rounded-full'></span>
+                <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100'>
+                  高级配置
+                </h4>
+                <span className='text-xs text-gray-400 dark:text-gray-500'>
+                  弹幕格式、颜色转换、数量限制、屏蔽词等
+                </span>
+              </div>
+              <div className='text-gray-500 dark:text-gray-400'>
+                {showAdvanced ? (
+                  <ChevronUp size={16} />
+                ) : (
+                  <ChevronDown size={16} />
+                )}
+              </div>
+            </button>
+
+            {showAdvanced && (
+              <div className='p-4 space-y-4 border-t border-gray-100 dark:border-gray-700/50'>
+                {/* 弹幕输出格式 */}
+                <div>
+                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                    弹幕输出格式
+                  </label>
+                  <div className='flex gap-3'>
+                    {[
+                      { value: 'json', label: 'JSON' },
+                      { value: 'xml', label: 'XML (Bilibili 标准)' },
+                    ].map((fmt) => (
+                      <label
+                        key={fmt.value}
+                        className={`cursor-pointer flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all ${
+                          danmuSettings.danmuOutputFormat === fmt.value
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:border-blue-200'
+                        }`}
+                      >
+                        <input
+                          type='radio'
+                          name='danmuOutputFormat'
+                          value={fmt.value}
+                          checked={
+                            danmuSettings.danmuOutputFormat === fmt.value
+                          }
+                          onChange={(e) =>
+                            setDanmuSettings((prev) => ({
+                              ...prev,
+                              danmuOutputFormat: e.target.value as
+                                | 'json'
+                                | 'xml',
+                            }))
+                          }
+                          className='sr-only'
+                        />
+                        <span className='text-sm font-medium'>{fmt.label}</span>
+                        {danmuSettings.danmuOutputFormat === fmt.value && (
+                          <Check className='w-4 h-4 text-blue-500' />
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 弹幕颜色转换 */}
+                <div>
+                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                    弹幕颜色转换
+                  </label>
+                  <div className='flex flex-wrap gap-2'>
+                    {[
+                      { value: 'default', label: '不转换' },
+                      { value: 'white', label: '全部转白色' },
+                      { value: 'color', label: '白色转随机彩色' },
+                    ].map((opt) => (
+                      <label
+                        key={opt.value}
+                        className={`cursor-pointer px-3 py-1.5 rounded-lg border-2 text-sm transition-all ${
+                          danmuSettings.convertColor === opt.value
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-blue-200'
+                        }`}
+                      >
+                        <input
+                          type='radio'
+                          name='convertColor'
+                          value={opt.value}
+                          checked={danmuSettings.convertColor === opt.value}
+                          onChange={(e) =>
+                            setDanmuSettings((prev) => ({
+                              ...prev,
+                              convertColor: e.target.value as
+                                | 'default'
+                                | 'white'
+                                | 'color',
+                            }))
+                          }
+                          className='sr-only'
+                        />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 简繁转换 */}
+                <div>
+                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                    弹幕简繁体转换
+                  </label>
+                  <div className='flex flex-wrap gap-2'>
+                    {[
+                      { value: 'default', label: '不转换' },
+                      { value: 'simplified', label: '繁体转简体' },
+                      { value: 'traditional', label: '简体转繁体' },
+                    ].map((opt) => (
+                      <label
+                        key={opt.value}
+                        className={`cursor-pointer px-3 py-1.5 rounded-lg border-2 text-sm transition-all ${
+                          danmuSettings.simplifiedTraditional === opt.value
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-blue-200'
+                        }`}
+                      >
+                        <input
+                          type='radio'
+                          name='simplifiedTraditional'
+                          value={opt.value}
+                          checked={
+                            danmuSettings.simplifiedTraditional === opt.value
+                          }
+                          onChange={(e) =>
+                            setDanmuSettings((prev) => ({
+                              ...prev,
+                              simplifiedTraditional: e.target.value as
+                                | 'default'
+                                | 'simplified'
+                                | 'traditional',
+                            }))
+                          }
+                          className='sr-only'
+                        />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 顶部/底部弹幕转浮动 */}
+                <div className='flex items-center justify-between'>
+                  <div>
+                    <p className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                      顶部/底部弹幕转浮动
+                    </p>
+                    <p className='text-xs text-gray-500 dark:text-gray-400'>
+                      部分播放器不支持顶部/底部弹幕时启用
+                    </p>
+                  </div>
+                  <button
+                    onClick={() =>
+                      setDanmuSettings((prev) => ({
+                        ...prev,
+                        convertTopBottomToScroll:
+                          !prev.convertTopBottomToScroll,
+                      }))
+                    }
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      danmuSettings.convertTopBottomToScroll
+                        ? buttonStyles.toggleOn
+                        : buttonStyles.toggleOff
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full transition-transform ${
+                        buttonStyles.toggleThumb
+                      } ${
+                        danmuSettings.convertTopBottomToScroll
+                          ? 'translate-x-6'
+                          : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* 弹幕数量限制 */}
+                <div>
+                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5'>
+                    弹幕数量限制
+                    <span className='text-xs text-gray-400 dark:text-gray-500 font-normal ml-2'>
+                      单位: 千条 (0 = 不限制)
+                    </span>
+                  </label>
+                  <input
+                    type='number'
+                    min={0}
+                    max={100}
+                    value={danmuSettings.danmuLimit}
+                    onChange={(e) =>
+                      setDanmuSettings((prev) => ({
+                        ...prev,
+                        danmuLimit: parseInt(e.target.value) || 0,
+                      }))
+                    }
+                    className='w-32 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all'
+                  />
+                </div>
+
+                {/* 源合并配置 */}
+                <div>
+                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5'>
+                    源合并配置
+                    <span className='text-xs text-gray-400 dark:text-gray-500 font-normal ml-2'>
+                      格式: 源1&源2,源3&源4 （用 & 合并，用 , 分组）
+                    </span>
+                  </label>
+                  <input
+                    type='text'
+                    value={danmuSettings.mergeSourcePairs}
+                    onChange={(e) =>
+                      setDanmuSettings((prev) => ({
+                        ...prev,
+                        mergeSourcePairs: e.target.value,
+                      }))
+                    }
+                    placeholder='如 imgo&iqiyi,dandan&bahamut&animeko'
+                    className='w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono placeholder-gray-400 dark:placeholder-gray-500'
+                  />
+                </div>
+
+                {/* B站 Cookie */}
+                <div>
+                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5'>
+                    哔哩哔哩 Cookie
+                    <span className='text-xs text-gray-400 dark:text-gray-500 font-normal ml-2'>
+                      填入后可获取完整弹幕和港澳台内容
+                    </span>
+                  </label>
+                  <textarea
+                    value={danmuSettings.bilibiliCookie}
+                    onChange={(e) =>
+                      setDanmuSettings((prev) => ({
+                        ...prev,
+                        bilibiliCookie: e.target.value,
+                      }))
+                    }
+                    placeholder='SESSDATA=xxx; bili_jct=xxx'
+                    rows={2}
+                    className='w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono placeholder-gray-400 dark:placeholder-gray-500 resize-none'
+                  />
+                </div>
+
+                {/* 弹幕屏蔽词 */}
+                <div>
+                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5'>
+                    弹幕屏蔽词
+                    <span className='text-xs text-gray-400 dark:text-gray-500 font-normal ml-2'>
+                      支持正则表达式，用逗号分隔
+                    </span>
+                  </label>
+                  <textarea
+                    value={danmuSettings.blockedWords}
+                    onChange={(e) =>
+                      setDanmuSettings((prev) => ({
+                        ...prev,
+                        blockedWords: e.target.value,
+                      }))
+                    }
+                    placeholder='/.{20,}/,/签到|打卡|前排/'
+                    rows={3}
+                    className='w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono placeholder-gray-400 dark:placeholder-gray-500 resize-none'
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 保存按钮 */}
+          <div className='flex items-center justify-end gap-3 pt-2'>
+            <button
+              onClick={handleSave}
+              disabled={isLoading('saveDanmuConfig')}
+              className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
+                isLoading('saveDanmuConfig')
+                  ? buttonStyles.disabled
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md'
+              }`}
+            >
+              {isLoading('saveDanmuConfig') ? (
+                <svg
+                  className='w-4 h-4 animate-spin'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                >
+                  <circle
+                    className='opacity-25'
+                    cx='12'
+                    cy='12'
+                    r='10'
+                    stroke='currentColor'
+                    strokeWidth='4'
+                  />
+                  <path
+                    className='opacity-75'
+                    fill='currentColor'
+                    d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z'
+                  />
+                </svg>
+              ) : (
+                <Check className='w-4 h-4' />
+              )}
+              {isLoading('saveDanmuConfig') ? '保存中...' : '保存配置'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 保存按钮 - 当弹幕服务关闭时也需要保存 */}
+      {!danmuSettings.enabled && (
+        <div className='flex items-center justify-end gap-3 pt-2'>
+          <button
+            onClick={handleSave}
+            disabled={isLoading('saveDanmuConfig')}
+            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
+              isLoading('saveDanmuConfig')
+                ? buttonStyles.disabled
+                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md'
+            }`}
+          >
+            {isLoading('saveDanmuConfig') ? (
+              <svg
+                className='w-4 h-4 animate-spin'
+                viewBox='0 0 24 24'
+                fill='none'
+              >
+                <circle
+                  className='opacity-25'
+                  cx='12'
+                  cy='12'
+                  r='10'
+                  stroke='currentColor'
+                  strokeWidth='4'
+                />
+                <path
+                  className='opacity-75'
+                  fill='currentColor'
+                  d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z'
+                />
+              </svg>
+            ) : (
+              <Check className='w-4 h-4' />
+            )}
+            {isLoading('saveDanmuConfig') ? '保存中...' : '保存配置'}
+          </button>
+        </div>
+      )}
+
+      {isNodeModalOpen && (
+        <div
+          className='fixed inset-0 z-1002 flex items-center justify-center bg-black/60 p-4'
+          onClick={closeNodeModal}
+        >
+          <div
+            className='w-full max-w-lg rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className='flex items-center justify-between border-b border-gray-100 dark:border-gray-700 px-5 py-4'>
+              <h5 className='text-base font-semibold text-gray-900 dark:text-gray-100'>
+                {editingNodeId ? '编辑自定义节点' : '添加自定义节点'}
+              </h5>
+              <button
+                type='button'
+                onClick={closeNodeModal}
+                className='text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              >
+                关闭
+              </button>
+            </div>
+            <div className='space-y-4 px-5 py-4'>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5'>
+                  节点名称
+                </label>
+                <input
+                  type='text'
+                  value={nodeForm.name}
+                  onChange={(e) =>
+                    setNodeForm((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  placeholder='例如：家庭节点 / 海外节点'
+                  className='w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+                />
+              </div>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5'>
+                  服务地址
+                </label>
+                <input
+                  type='text'
+                  value={nodeForm.url}
+                  onChange={(e) =>
+                    setNodeForm((prev) => ({ ...prev, url: e.target.value }))
+                  }
+                  placeholder='https://danmu.example.com'
+                  className='w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+                />
+              </div>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5'>
+                  API Token
+                </label>
+                <input
+                  type='text'
+                  value={nodeForm.token}
+                  onChange={(e) =>
+                    setNodeForm((prev) => ({ ...prev, token: e.target.value }))
+                  }
+                  placeholder='可留空'
+                  className='w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+                />
+              </div>
+            </div>
+            <div className='flex items-center justify-end gap-2 border-t border-gray-100 dark:border-gray-700 px-5 py-4'>
+              <button
+                type='button'
+                onClick={closeNodeModal}
+                className={buttonStyles.secondarySmall}
+              >
+                取消
+              </button>
+              <button
+                type='button'
+                onClick={handleSubmitNode}
+                className={buttonStyles.primarySmall}
+              >
+                {editingNodeId ? '保存修改' : '添加节点'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={hideAlert}
+        type={alertModal.type}
+        title={alertModal.title}
+        message={alertModal.message}
+        timer={alertModal.timer}
+        showConfirm={alertModal.showConfirm}
+      />
+    </div>
+  );
+};
+
 function AdminPageClient() {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -5939,6 +7982,7 @@ function AdminPageClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<'owner' | 'admin' | null>(null);
+  const [storageMode, setStorageMode] = useState<'cloud' | 'local'>('cloud'); // 存储模式
   const [showResetConfigModal, setShowResetConfigModal] = useState(false);
   const [expandedTabs, setExpandedTabs] = useState<{ [key: string]: boolean }>({
     userConfig: false,
@@ -5948,6 +7992,7 @@ function AdminPageClient() {
     siteConfig: false,
     categoryConfig: false,
     configFile: false,
+    danmuConfig: false,
     dataMigration: false,
   });
 
@@ -5964,34 +8009,116 @@ function AdminPageClient() {
   const [isRefreshingJar, setIsRefreshingJar] = useState(false);
   const [isCheckingJar, setIsCheckingJar] = useState(false);
 
-  // 获取管理员配置
-  // showLoading 用于控制是否在请求期间显示整体加载骨架。
-  const fetchConfig = useCallback(async (showLoading = false) => {
+  // localStorage 键名常量
+  const LOCAL_CONFIG_KEY = 'decotv_admin_config';
+
+  // 从 localStorage 读取配置
+  const loadLocalConfig = useCallback((): AdminConfig | null => {
     try {
-      if (showLoading) {
-        setLoading(true);
+      const stored = localStorage.getItem(LOCAL_CONFIG_KEY);
+      if (stored) {
+        return JSON.parse(stored) as AdminConfig;
       }
+    } catch (e) {
+      console.error('读取本地配置失败:', e);
+    }
+    return null;
+  }, []);
 
-      const response = await fetch(`/api/admin/config`);
-
-      if (!response.ok) {
-        const data = (await response.json()) as any;
-        throw new Error(`获取配置失败: ${data.error}`);
-      }
-
-      const data = (await response.json()) as AdminConfigResult;
-      setConfig(data.Config);
-      setRole(data.Role);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '获取配置失败';
-      showError(msg, showAlert);
-      setError(msg);
-    } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
+  // 保存配置到 localStorage
+  const saveLocalConfig = useCallback((configToSave: AdminConfig) => {
+    try {
+      localStorage.setItem(LOCAL_CONFIG_KEY, JSON.stringify(configToSave));
+      return true;
+    } catch (e) {
+      console.error('保存本地配置失败:', e);
+      return false;
     }
   }, []);
+
+  // 获取管理员配置
+  // showLoading 用于控制是否在请求期间显示整体加载骨架。
+  const fetchConfig = useCallback(
+    async (showLoading = false) => {
+      try {
+        if (showLoading) {
+          setLoading(true);
+        }
+
+        const response = await fetch(`/api/admin/config`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(`获取配置失败: ${data.error || response.statusText}`);
+        }
+
+        // 检查存储模式
+        const mode = data.storageMode || 'cloud';
+        setStorageMode(mode);
+
+        let finalConfig = data.Config;
+
+        // 如果是本地模式，尝试从 localStorage 读取并合并配置
+        if (mode === 'local') {
+          const localConfig = loadLocalConfig();
+          if (localConfig) {
+            // 用 localStorage 中的配置覆盖 API 返回的默认配置
+            finalConfig = localConfig;
+          }
+        }
+
+        setConfig(finalConfig);
+        setRole(data.Role);
+        // 成功时清除之前的错误状态
+        setError(null);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '获取配置失败';
+        console.error('Admin config fetch error:', err);
+        showError(msg, showAlert);
+        setError(msg);
+      } finally {
+        if (showLoading) {
+          setLoading(false);
+        }
+      }
+    },
+    [loadLocalConfig],
+  );
+
+  // 同步配置到后端内存（本地模式专用）
+  const syncConfigToBackend = useCallback(async (configToSync: AdminConfig) => {
+    try {
+      const response = await fetch('/api/admin/config/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: configToSync }),
+      });
+      if (!response.ok) {
+        console.warn('同步配置到后端失败');
+      } else {
+        console.log('[本地模式] 配置已同步到后端内存');
+      }
+    } catch (e) {
+      console.warn('同步配置到后端失败:', e);
+    }
+  }, []);
+
+  // 当配置变化且是本地模式时，自动同步到 localStorage 和后端
+  useEffect(() => {
+    if (storageMode === 'local' && config) {
+      saveLocalConfig(config);
+      // 同时同步到后端内存，确保搜索和播放功能正常工作
+      syncConfigToBackend(config);
+    }
+  }, [config, storageMode, saveLocalConfig, syncConfigToBackend]);
+
+  // 直接更新配置（用于本地模式下的子组件）
+  const updateConfig = useCallback(
+    (updater: (prev: AdminConfig | null) => AdminConfig | null) => {
+      setConfig(updater);
+    },
+    [],
+  );
 
   useEffect(() => {
     // 首次加载时显示骨架
@@ -6030,7 +8157,7 @@ function AdminPageClient() {
       const url = getTvboxConfigUrl();
       await navigator.clipboard.writeText(url);
       showSuccess('复制成功！订阅地址已复制到剪贴板', showAlert);
-    } catch (err) {
+    } catch {
       showError('复制失败，请手动复制地址', showAlert);
     }
   };
@@ -6081,7 +8208,7 @@ function AdminPageClient() {
     } catch (err) {
       showError(
         `配置测试失败: ${err instanceof Error ? err.message : '网络错误'}`,
-        showAlert
+        showAlert,
       );
     }
   };
@@ -6206,14 +8333,73 @@ function AdminPageClient() {
   }
 
   if (error) {
-    // 错误已通过弹窗展示，此处直接返回空
-    return null;
+    // 显示错误信息，而不是返回空白
+    return (
+      <PageLayout activePath='/admin'>
+        <div className='px-2 sm:px-10 py-4 sm:py-8'>
+          <div className='max-w-[95%] mx-auto'>
+            <h1 className='text-2xl font-bold text-gray-900 dark:text-gray-100 mb-8'>
+              管理员设置
+            </h1>
+            <div className='p-6 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800'>
+              <div className='flex items-start gap-3'>
+                <AlertCircle className='w-6 h-6 text-red-600 dark:text-red-400 shrink-0 mt-0.5' />
+                <div className='flex-1'>
+                  <h3 className='text-lg font-semibold text-red-800 dark:text-red-300 mb-2'>
+                    加载失败
+                  </h3>
+                  <p className='text-red-700 dark:text-red-400 mb-4'>{error}</p>
+                  <div className='text-sm text-red-600 dark:text-red-500 mb-4'>
+                    <p className='mb-2'>可能的原因：</p>
+                    <ul className='list-disc list-inside space-y-1'>
+                      <li>数据库连接失败（请检查 Redis/Upstash 配置）</li>
+                      <li>权限不足（需要 owner 或 admin 角色）</li>
+                      <li>网络连接问题</li>
+                    </ul>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setError(null);
+                      fetchConfig(true);
+                    }}
+                    className={buttonStyles.danger}
+                  >
+                    重试
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </PageLayout>
+    );
   }
 
   return (
     <PageLayout activePath='/admin'>
       <div className='px-2 sm:px-10 py-4 sm:py-8'>
         <div className='max-w-[95%] mx-auto'>
+          {/* 本地模式警告提示 */}
+          {storageMode === 'local' && (
+            <div className='mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800'>
+              <div className='flex items-start gap-3'>
+                <AlertTriangle className='w-5 h-5 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5' />
+                <div className='flex-1'>
+                  <h4 className='text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-1'>
+                    本地存储模式
+                  </h4>
+                  <p className='text-sm text-yellow-700 dark:text-yellow-400'>
+                    未检测到云端数据库（Redis/Upstash），当前配置将仅保存在您的浏览器缓存中。
+                    <span className='font-medium'>
+                      清除浏览器数据后配置将丢失。
+                    </span>
+                    如需持久化存储，请配置 Redis 或 Upstash 数据库。
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 标题 + 重置配置按钮 */}
           <div className='flex items-center gap-2 mb-8'>
             <h1 className='text-2xl font-bold text-gray-900 dark:text-gray-100'>
@@ -6245,6 +8431,8 @@ function AdminPageClient() {
               <ConfigFileComponent
                 config={config}
                 refreshConfig={fetchConfig}
+                storageMode={storageMode}
+                updateConfig={updateConfig}
               />
             </CollapsibleTab>
           )}
@@ -6290,7 +8478,12 @@ function AdminPageClient() {
               isExpanded={expandedTabs.videoSource}
               onToggle={() => toggleTab('videoSource')}
             >
-              <VideoSourceConfig config={config} refreshConfig={fetchConfig} />
+              <VideoSourceConfig
+                config={config}
+                refreshConfig={fetchConfig}
+                storageMode={storageMode}
+                updateConfig={updateConfig}
+              />
             </CollapsibleTab>
 
             {/* 直播源配置标签 */}
@@ -6302,14 +8495,22 @@ function AdminPageClient() {
               isExpanded={expandedTabs.liveSource}
               onToggle={() => toggleTab('liveSource')}
             >
-              <LiveSourceConfig config={config} refreshConfig={fetchConfig} />
+              <LiveSourceConfig
+                config={config}
+                refreshConfig={fetchConfig}
+                storageMode={storageMode}
+                updateConfig={updateConfig}
+              />
             </CollapsibleTab>
 
             {/* TVbox 配置 */}
             <CollapsibleTab
               title='TVbox配置'
               icon={
-                <Tv size={20} className='text-gray-600 dark:text-gray-400' />
+                <Package
+                  size={20}
+                  className='text-gray-600 dark:text-gray-400'
+                />
               }
               isExpanded={expandedTabs.tvboxConfig}
               onToggle={() => toggleTab('tvboxConfig')}
@@ -6329,7 +8530,7 @@ function AdminPageClient() {
                   <div className='p-5 space-y-6'>
                     {/* 链接输入框区域 */}
                     <div className='flex flex-col sm:flex-row gap-3'>
-                      <div className='relative flex-grow'>
+                      <div className='relative grow'>
                         <input
                           type='text'
                           readOnly
@@ -6352,7 +8553,7 @@ function AdminPageClient() {
                           </svg>
                         </div>
                       </div>
-                      <div className='flex gap-2 flex-shrink-0'>
+                      <div className='flex gap-2 shrink-0'>
                         <button
                           onClick={handleTvboxCopy}
                           className='flex-1 sm:flex-none px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md font-medium flex items-center justify-center gap-2'
@@ -6427,7 +8628,7 @@ function AdminPageClient() {
                                 checked={tvboxFormat === fmt.value}
                                 onChange={(e) =>
                                   setTvboxFormat(
-                                    e.target.value as 'json' | 'base64'
+                                    e.target.value as 'json' | 'base64',
                                   )
                                 }
                                 className='sr-only'
@@ -6540,11 +8741,11 @@ function AdminPageClient() {
                 </div>
 
                 {/* 中部：成人内容过滤 (保持原有风格但微调) */}
-                <div className='bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-900/10 dark:to-rose-900/10 rounded-xl border border-pink-100 dark:border-pink-800/30 p-1'>
+                <div className='bg-linear-to-br from-pink-50 to-rose-50 dark:from-pink-900/10 dark:to-rose-900/10 rounded-xl border border-pink-100 dark:border-pink-800/30 p-1'>
                   <div className='bg-white/50 dark:bg-gray-800/50 rounded-lg p-4 backdrop-blur-sm'>
                     <div className='flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4'>
                       <div className='flex items-center gap-3'>
-                        <div className='w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white shadow-lg shadow-pink-500/30'>
+                        <div className='w-10 h-10 rounded-full bg-linear-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white shadow-lg shadow-pink-500/30'>
                           🔒
                         </div>
                         <div>
@@ -6586,7 +8787,7 @@ function AdminPageClient() {
                           navigator.clipboard.writeText(baseUrl);
                           showSuccess(
                             '已复制家庭安全模式链接（默认过滤成人内容）',
-                            showAlert
+                            showAlert,
                           );
                         }}
                         className='group flex items-center justify-between p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-green-400 dark:hover:border-green-600 hover:shadow-sm transition-all'
@@ -6616,7 +8817,7 @@ function AdminPageClient() {
                           navigator.clipboard.writeText(fullUrl);
                           showSuccess(
                             '已复制完整内容模式链接（显示所有内容）',
-                            showAlert
+                            showAlert,
                           );
                         }}
                         className='group flex items-center justify-between p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-rose-400 dark:hover:border-rose-600 hover:shadow-sm transition-all'
@@ -6663,7 +8864,7 @@ function AdminPageClient() {
                       </button>
                     </div>
 
-                    <div className='flex-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 min-h-[80px]'>
+                    <div className='flex-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 min-h-20'>
                       {diagnosisResult ? (
                         <div className='flex items-start gap-3'>
                           <div
@@ -6760,7 +8961,7 @@ function AdminPageClient() {
                       </div>
                     </div>
 
-                    <div className='flex-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 min-h-[80px]'>
+                    <div className='flex-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 min-h-20'>
                       {jarStatus ? (
                         <div className='flex items-start gap-3'>
                           <div
@@ -6782,11 +8983,11 @@ function AdminPageClient() {
                               <span>
                                 {jarStatus.fresh_status?.size
                                   ? Math.round(
-                                      jarStatus.fresh_status.size / 1024
+                                      jarStatus.fresh_status.size / 1024,
                                     ) + 'KB'
                                   : '-'}
                               </span>
-                              <span className='truncate max-w-[80px]'>
+                              <span className='truncate max-w-20'>
                                 {jarStatus.fresh_status?.md5?.substring(0, 6)}
                                 ...
                               </span>
@@ -6826,6 +9027,24 @@ function AdminPageClient() {
                   </div>
                 </div>
               </div>
+            </CollapsibleTab>
+
+            {/* 弹幕配置标签 */}
+            <CollapsibleTab
+              title='弹幕配置'
+              icon={
+                <MessageSquareText
+                  size={20}
+                  className='text-gray-600 dark:text-gray-400'
+                />
+              }
+              isExpanded={expandedTabs.danmuConfig}
+              onToggle={() => toggleTab('danmuConfig')}
+            >
+              <DanmuConfigComponent
+                config={config}
+                refreshConfig={fetchConfig}
+              />
             </CollapsibleTab>
 
             {/* 分类配置标签 */}
@@ -6878,7 +9097,7 @@ function AdminPageClient() {
       {showResetConfigModal &&
         createPortal(
           <div
-            className='fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'
+            className='fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4'
             onClick={() => setShowResetConfigModal(false)}
           >
             <div
@@ -6959,7 +9178,7 @@ function AdminPageClient() {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </PageLayout>
   );

@@ -1,9 +1,9 @@
-/* eslint-disable no-console,@typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 
-import { getConfig } from "@/lib/config";
-import { getBaseUrl, resolveUrl } from "@/lib/live";
+import { getConfig } from '@/lib/config';
+import { getBaseUrl, resolveUrl } from '@/lib/live';
 
 export const runtime = 'nodejs';
 
@@ -39,12 +39,18 @@ export async function GET(request: Request) {
     });
 
     if (!response.ok) {
-      return NextResponse.json({ error: 'Failed to fetch m3u8' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch m3u8' },
+        { status: 500 },
+      );
     }
 
     const contentType = response.headers.get('Content-Type') || '';
     // rewrite m3u8
-    if (contentType.toLowerCase().includes('mpegurl') || contentType.toLowerCase().includes('octet-stream')) {
+    if (
+      contentType.toLowerCase().includes('mpegurl') ||
+      contentType.toLowerCase().includes('octet-stream')
+    ) {
       // 获取最终的响应URL（处理重定向后的URL）
       const finalUrl = response.url;
       const m3u8Content = await response.text();
@@ -54,47 +60,74 @@ export async function GET(request: Request) {
       const baseUrl = getBaseUrl(finalUrl);
 
       // 重写 M3U8 内容
-      const modifiedContent = rewriteM3U8Content(m3u8Content, baseUrl, request, allowCORS);
+      const modifiedContent = rewriteM3U8Content(
+        m3u8Content,
+        baseUrl,
+        request,
+        allowCORS,
+      );
 
       const headers = new Headers();
       headers.set('Content-Type', contentType);
       headers.set('Access-Control-Allow-Origin', '*');
       headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      headers.set('Access-Control-Allow-Headers', 'Content-Type, Range, Origin, Accept');
+      headers.set(
+        'Access-Control-Allow-Headers',
+        'Content-Type, Range, Origin, Accept',
+      );
       headers.set('Cache-Control', 'no-cache');
-      headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+      headers.set(
+        'Access-Control-Expose-Headers',
+        'Content-Length, Content-Range',
+      );
       return new Response(modifiedContent, { headers });
     }
     // just proxy
     const headers = new Headers();
-    headers.set('Content-Type', response.headers.get('Content-Type') || 'application/vnd.apple.mpegurl');
+    headers.set(
+      'Content-Type',
+      response.headers.get('Content-Type') || 'application/vnd.apple.mpegurl',
+    );
     headers.set('Access-Control-Allow-Origin', '*');
     headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    headers.set('Access-Control-Allow-Headers', 'Content-Type, Range, Origin, Accept');
+    headers.set(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Range, Origin, Accept',
+    );
     headers.set('Cache-Control', 'no-cache');
-    headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+    headers.set(
+      'Access-Control-Expose-Headers',
+      'Content-Length, Content-Range',
+    );
 
     // 直接返回视频流
     return new Response(response.body, {
       status: 200,
       headers,
     });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch m3u8' }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { error: 'Failed to fetch m3u8' },
+      { status: 500 },
+    );
   } finally {
     // 确保 response 被正确关闭以释放资源
     if (response && !responseUsed) {
       try {
         response.body?.cancel();
-      } catch (error) {
+      } catch {
         // 忽略关闭时的错误
-        console.warn('Failed to close response body:', error);
       }
     }
   }
 }
 
-function rewriteM3U8Content(content: string, baseUrl: string, req: Request, allowCORS: boolean) {
+function rewriteM3U8Content(
+  content: string,
+  baseUrl: string,
+  req: Request,
+  allowCORS: boolean,
+) {
   // 从 referer 头提取协议信息
   const referer = req.headers.get('referer');
   let protocol = 'http';
@@ -102,7 +135,7 @@ function rewriteM3U8Content(content: string, baseUrl: string, req: Request, allo
     try {
       const refererUrl = new URL(referer);
       protocol = refererUrl.protocol.replace(':', '');
-    } catch (error) {
+    } catch {
       // ignore
     }
   }
@@ -119,19 +152,22 @@ function rewriteM3U8Content(content: string, baseUrl: string, req: Request, allo
     // 处理 TS 片段 URL 和其他媒体文件
     if (line && !line.startsWith('#')) {
       const resolvedUrl = resolveUrl(baseUrl, line);
-      const proxyUrl = allowCORS ? resolvedUrl : `${proxyBase}/segment?url=${encodeURIComponent(resolvedUrl)}`;
+      const proxyUrl = allowCORS
+        ? resolvedUrl
+        : `${proxyBase}/segment?url=${encodeURIComponent(resolvedUrl)}`;
       rewrittenLines.push(proxyUrl);
       continue;
     }
 
     // 处理 EXT-X-MAP 标签中的 URI
     if (line.startsWith('#EXT-X-MAP:')) {
-      line = rewriteMapUri(line, baseUrl, proxyBase);
+      line = rewriteMapUri(line, baseUrl, proxyBase, allowCORS);
     }
 
     // 处理 EXT-X-KEY 标签中的 URI
+    // 注意：加密密钥通常需要走代理，因为可能存在跨域问题
     if (line.startsWith('#EXT-X-KEY:')) {
-      line = rewriteKeyUri(line, baseUrl, proxyBase);
+      line = rewriteKeyUri(line, baseUrl, proxyBase, allowCORS);
     }
 
     // 处理嵌套的 M3U8 文件 (EXT-X-STREAM-INF)
@@ -143,7 +179,10 @@ function rewriteM3U8Content(content: string, baseUrl: string, req: Request, allo
         const nextLine = lines[i].trim();
         if (nextLine && !nextLine.startsWith('#')) {
           const resolvedUrl = resolveUrl(baseUrl, nextLine);
-          const proxyUrl = `${proxyBase}/m3u8?url=${encodeURIComponent(resolvedUrl)}`;
+          // 嵌套的 M3U8 需要继续走代理以便处理其中的 URL
+          const proxyUrl = allowCORS
+            ? `${proxyBase}/m3u8?url=${encodeURIComponent(resolvedUrl)}&allowCORS=true`
+            : `${proxyBase}/m3u8?url=${encodeURIComponent(resolvedUrl)}`;
           rewrittenLines.push(proxyUrl);
         } else {
           rewrittenLines.push(nextLine);
@@ -158,23 +197,38 @@ function rewriteM3U8Content(content: string, baseUrl: string, req: Request, allo
   return rewrittenLines.join('\n');
 }
 
-function rewriteMapUri(line: string, baseUrl: string, proxyBase: string) {
+function rewriteMapUri(
+  line: string,
+  baseUrl: string,
+  proxyBase: string,
+  allowCORS: boolean,
+) {
   const uriMatch = line.match(/URI="([^"]+)"/);
   if (uriMatch) {
     const originalUri = uriMatch[1];
     const resolvedUrl = resolveUrl(baseUrl, originalUri);
-    const proxyUrl = `${proxyBase}/segment?url=${encodeURIComponent(resolvedUrl)}`;
+    const proxyUrl = allowCORS
+      ? resolvedUrl
+      : `${proxyBase}/segment?url=${encodeURIComponent(resolvedUrl)}`;
     return line.replace(uriMatch[0], `URI="${proxyUrl}"`);
   }
   return line;
 }
 
-function rewriteKeyUri(line: string, baseUrl: string, proxyBase: string) {
+function rewriteKeyUri(
+  line: string,
+  baseUrl: string,
+  proxyBase: string,
+  allowCORS: boolean,
+) {
   const uriMatch = line.match(/URI="([^"]+)"/);
   if (uriMatch) {
     const originalUri = uriMatch[1];
     const resolvedUrl = resolveUrl(baseUrl, originalUri);
-    const proxyUrl = `${proxyBase}/key?url=${encodeURIComponent(resolvedUrl)}`;
+    // 加密密钥即使在直连模式下也尝试直连，如果失败播放器会重试
+    const proxyUrl = allowCORS
+      ? resolvedUrl
+      : `${proxyBase}/key?url=${encodeURIComponent(resolvedUrl)}`;
     return line.replace(uriMatch[0], `URI="${proxyUrl}"`);
   }
   return line;

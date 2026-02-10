@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAuthInfoFromCookie } from '@/lib/auth';
+import { getAuthInfoFromCookie, verifyApiAuth } from '@/lib/auth';
 import { toSimplified } from '@/lib/chinese';
 import { getAvailableApiSites, getCacheTime, getConfig } from '@/lib/config';
 import { searchFromApi } from '@/lib/downstream';
@@ -12,10 +12,16 @@ import { yellowWords } from '@/lib/yellow';
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
-  const authInfo = getAuthInfoFromCookie(request);
-  if (!authInfo || !authInfo.username) {
+  // 使用统一的认证函数，支持本地模式和数据库模式
+  const authResult = verifyApiAuth(request);
+  if (!authResult.isValid) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  // 获取用户名（本地模式可能没有 username）
+  const authInfo = getAuthInfoFromCookie(request);
+  const username =
+    authInfo?.username || (authResult.isLocalMode ? '__local__' : '');
 
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q');
@@ -31,12 +37,12 @@ export async function GET(request: NextRequest) {
           'Vercel-CDN-Cache-Control': `public, s-maxage=${cacheTime}`,
           'Netlify-Vary': 'query',
         },
-      }
+      },
     );
   }
 
   const config = await getConfig();
-  const apiSites = await getAvailableApiSites(authInfo.username);
+  const apiSites = await getAvailableApiSites(username);
 
   // 🔒 成人内容过滤逻辑
   // URL 参数优先级: ?adult=1 (显示成人) > ?filter=off (显示成人) > 全局配置
@@ -80,13 +86,13 @@ export async function GET(request: NextRequest) {
       Promise.race([
         searchFromApi(site, q),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`${site.name} timeout`)), 20000)
+          setTimeout(() => reject(new Error(`${site.name} timeout`)), 20000),
         ),
       ]).catch((err) => {
         console.warn(`搜索失败 ${site.name} (query: ${q}):`, err.message);
         return []; // 返回空数组而不是抛出错误
-      })
-    )
+      }),
+    ),
   );
 
   try {
@@ -128,7 +134,7 @@ export async function GET(request: NextRequest) {
     // 🎯 智能排序：按相关性对搜索结果排序（使用规范化关键词）
     flattenedResults = rankSearchResults(
       flattenedResults,
-      normalizedQuery || query
+      normalizedQuery || query,
     );
 
     const cacheTime = await getCacheTime();
@@ -148,9 +154,9 @@ export async function GET(request: NextRequest) {
           'Netlify-Vary': 'query',
           'X-Adult-Filter': shouldFilterAdult ? 'enabled' : 'disabled', // 调试信息
         },
-      }
+      },
     );
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: '搜索失败' }, { status: 500 });
   }
 }

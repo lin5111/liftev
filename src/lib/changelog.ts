@@ -11,6 +11,95 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.2.0',
+    date: '2026-01-30',
+    added: [
+      '⚡ 直播直连模式: 新增可视化快捷开关，一键切换直连/代理模式，减少延迟提升流畅度',
+      '🗄️ 本地无数据库模式: 支持 Docker 部署无需 Redis/数据库，数据持久化存储于浏览器',
+      '🔄 配置同步功能: 本地模式下支持前端配置实时同步到后端内存存储',
+    ],
+    changed: [
+      '🚀 导航栏性能飞跃: 彻底解决分页切换卡顿问题，实现毫秒级响应',
+      '📦 Docker 部署优化: 完善本地部署方案，持久化存储体验升级',
+      '🔐 认证系统重构: 统一 localStorage 和数据库模式的认证处理逻辑',
+      '⚡ 全局缓存层: 实现智能防抖机制与 flushSync 同步更新，优化数据加载体验',
+    ],
+    fixed: [
+      '🐛 修复本地模式下用户名获取返回 undefined 的问题',
+      '🐛 修复站长用户添加和密码覆盖逻辑，确保数据导出正确处理',
+      '🐛 修复分类切换时状态不同步导致的卡顿问题',
+      '🐛 修复豆瓣页面切换分类时卡顿 1-2 分钟的严重问题',
+    ],
+  },
+  {
+    version: '1.1.0',
+    date: '2026-01-01',
+    added: [
+      '🎨 移动端悬浮导航: 全新 iOS 风格磨砂胶囊导航栏，支持动态主题色与横向滚动',
+      '🌈 极光流体背景: PC 端 CSS 极光动画取代 Canvas 粒子；移动端静态 Lite 版零功耗',
+      '🔀 数据源筛选器: 重构为"单行横滑 + 模态框"模式，节省空间',
+    ],
+    changed: [
+      '⚡ 主线程释放: 移除 JS 粒子计算，解决 PC 端导航栏点击卡顿问题',
+      '🚀 交互优化: 禁用导航栏预加载，提升点击响应速度',
+      '📜 滚动优化: 移除 Snap 效果，修复分类栏"回弹死锁"与"点击穿透"',
+      '🎨 UI 细节适配: 移动端导航栏亮/暗色模式自适应',
+    ],
+    fixed: [
+      '🔐 Docker 鉴权: 修复未配置 AUTH_SECRET 导致后台 401 错误',
+      '🖼️ 豆瓣爬虫: 修复部分演员头像缺失，增加默认头像与高清图替换',
+      '🏗️ 构建修复: 修复 MobileBottomNav 类型错误导致 GitHub Actions 失败',
+    ],
+  },
+  {
+    version: '1.0.0',
+    date: '2025-12-28',
+    added: [
+      '🎉 首个正式稳定版本 (Stable Release)',
+      '🏠 混合存储策略: 无 Redis 时自动降级为浏览器 localStorage',
+      '🌐 CMS 全量代理: 解决 Mixed Content 和 CORS 问题，User-Agent 伪装防拦截',
+      '🛡️ 纵深防御: Config 白名单 + Proxy Firewall 双重熔断机制',
+      '🎬 FilterBar 多行布局: Flex-Wrap 自动换行，PC 端信息展示更高效',
+      '⚡ 自动选中首分类: 切换视频源后立即加载内容',
+    ],
+    changed: [
+      '⚙️ 框架升级: Next.js 16.1.0 + React 19 + Turbopack',
+      '📦 CMS 代理切换为 Node.js Runtime，提升 HTTP 兼容性',
+      '🎨 DoubanSelector 重写为卡片式多行布局，移除横向滚动',
+      '🔄 所有外部 URL 统一走 /api/proxy/cms 代理',
+    ],
+    fixed: [
+      '🔐 修复 Admin 面板本地模式 Unauthorized 鉴权问题',
+      '💛 修复 DndContext 嵌套导致的 SSR Hydration 崩溃',
+      '📊 修复切换视频源后分类栏为空的问题',
+      '🛰️ 修复 HTTPS 页面加载 HTTP 图片失败 (wsrv.nl 代理)',
+      '🔇 修复 DoubanSelector 无限重渲染性能问题',
+      '🔒 修复 OrionTV 客户端缓存导致的隐私泄露问题',
+    ],
+  },
+  {
+    version: '0.9.0',
+    date: '2025-12-20',
+    added: [
+      '⬆️ 重大升级: Next.js 14 → 16.1.0，获得更好的性能与 React 19 支持',
+      '⬆️ 重大升级: Tailwind CSS 3.4 → 4.1.18，使用新的 CSS 原生配置方式',
+      '⬆️ React 18 → 19.0.0，支持最新的 React 特性与自动优化',
+      '⬆️ TypeScript 4.9 → 5.8.3，获得更好的类型检查与语言特性',
+      '⬆️ ESLint 8 → 9.28.0，迁移到新的 flat config 格式',
+      '⬆️ Jest 27 → 29.7.0，支持最新的测试特性',
+      '⬆️ Prettier 2 → 3.5.3，支持最新的代码格式化规则',
+    ],
+    changed: [
+      '🎨 优化亮色模式下的文字可读性，修复导航栏按钮文字过淡的问题',
+      '🎨 优化播放页详情区域的文字对比度，移除透明度使用明确颜色',
+      '🎨 修复亮色模式下灰色色板对比度不足的问题',
+      '🔧 Tailwind 配置迁移到 CSS 原生 `@theme` 指令',
+      '🔧 启用 Next.js Turbopack 构建模式，提升开发体验',
+      '🎨 更新 Tailwind CSS 类名为规范写法（bg-gradient → bg-linear 等）',
+    ],
+    fixed: ['🐛 修复亮色模式下影片卡片标题和来源名称显示不清晰的问题'],
+  },
+  {
     version: '0.8.0',
     date: '2025-12-12',
     added: [

@@ -1,3 +1,12 @@
+﻿export interface DanmuCustomNode {
+  id: string;
+  name: string;
+  url: string;
+  token: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface AdminConfig {
   ConfigSubscribtion: {
     URL: string;
@@ -16,14 +25,15 @@ export interface AdminConfig {
     DoubanImageProxy: string;
     DisableYellowFilter: boolean;
     FluidSearch: boolean;
+    LoginBackground?: string;
   };
   UserConfig: {
     Users: {
       username: string;
       role: 'user' | 'admin' | 'owner';
       banned?: boolean;
-      enabledApis?: string[]; // 优先级高于tags限制
-      tags?: string[]; // 多 tags 取并集限制
+      enabledApis?: string[];
+      tags?: string[];
     }[];
     Tags?: {
       name: string;
@@ -37,7 +47,7 @@ export interface AdminConfig {
     detail?: string;
     from: 'config' | 'custom';
     disabled?: boolean;
-    is_adult?: boolean; // 标记是否为成人资源
+    is_adult?: boolean;
   }[];
   CustomCategories: {
     name?: string;
@@ -49,13 +59,29 @@ export interface AdminConfig {
   LiveConfig?: {
     key: string;
     name: string;
-    url: string; // m3u 地址
+    url: string;
     ua?: string;
-    epg?: string; // 节目单
+    epg?: string;
     from: 'config' | 'custom';
     channelNumber?: number;
     disabled?: boolean;
   }[];
+  DanmuConfig?: {
+    enabled: boolean;
+    serverUrl: string;
+    token: string;
+    platform: string;
+    sourceOrder: string;
+    mergeSourcePairs: string;
+    bilibiliCookie: string;
+    convertTopBottomToScroll: boolean;
+    convertColor: 'default' | 'white' | 'color';
+    danmuLimit: number;
+    blockedWords: string;
+    danmuOutputFormat: 'json' | 'xml';
+    simplifiedTraditional: 'default' | 'simplified' | 'traditional';
+    customNodes?: DanmuCustomNode[];
+  };
 }
 
 export interface AdminConfigResult {

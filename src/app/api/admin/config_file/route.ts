@@ -1,39 +1,47 @@
-/* eslint-disable no-console,@typescript-eslint/no-explicit-any */
+/* eslint-disable no-console */
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAuthInfoFromCookie } from '@/lib/auth';
+import { verifyApiAuth } from '@/lib/auth';
 import { getConfig, refineConfig } from '@/lib/config';
 import { db } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
-  const storageType = process.env.NEXT_PUBLIC_STORAGE_TYPE || 'localstorage';
-  if (storageType === 'localstorage') {
+  // 🔐 使用统一认证函数，正确处理 localstorage 和数据库模式的差异
+  const authResult = verifyApiAuth(request);
+
+  // 本地模式（无数据库）：跳过认证，返回成功
+  if (authResult.isLocalMode) {
     return NextResponse.json(
       {
-        error: '不支持本地存储进行管理员配置',
+        ok: true,
+        storageMode: 'local',
+        message: '请在前端保存配置到 localStorage',
       },
-      { status: 400 }
+      { headers: { 'Cache-Control': 'no-store' } },
     );
   }
 
-  const authInfo = getAuthInfoFromCookie(request);
-  if (!authInfo || !authInfo.username) {
+  // 认证失败
+  if (!authResult.isValid) {
+    console.log('[admin/config_file] 认证失败:', {
+      hasAuth: !!request.cookies.get('auth'),
+      isLocalMode: authResult.isLocalMode,
+    });
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const username = authInfo.username;
 
   try {
     // 检查用户权限
     let adminConfig = await getConfig();
 
     // 仅站长可以修改配置文件
-    if (username !== process.env.USERNAME) {
+    if (!authResult.isOwner) {
       return NextResponse.json(
         { error: '权限不足，只有站长可以修改配置文件' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -45,7 +53,7 @@ export async function POST(request: NextRequest) {
     if (configFile !== undefined && typeof configFile !== 'string') {
       return NextResponse.json(
         { error: '配置文件内容格式错误' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -53,10 +61,10 @@ export async function POST(request: NextRequest) {
     if (configFile && configFile.trim()) {
       try {
         JSON.parse(configFile);
-      } catch (e) {
+      } catch {
         return NextResponse.json(
           { error: '配置文件格式错误，请检查 JSON 语法' },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -64,7 +72,7 @@ export async function POST(request: NextRequest) {
     // 如果配置文件被清空，删除所有 from='config' 的视频源（保留 from='custom'）
     if (!configFile || !configFile.trim()) {
       adminConfig.SourceConfig = adminConfig.SourceConfig.filter(
-        (source) => source.from === 'custom'
+        (source) => source.from === 'custom',
       );
       console.log('配置文件已清空，已删除所有系统预设视频源，保留自定义源');
     }
@@ -101,7 +109,7 @@ export async function POST(request: NextRequest) {
         error: '更新配置文件失败',
         details: (error as Error).message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
